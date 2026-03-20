@@ -348,14 +348,23 @@ WorldBuilder downloads AI models at runtime from HuggingFace Hub. No model weigh
 | Z-Image-Turbo D-ART/Cartoon LoRA | **Not declared** | `AiAF` — verify before commercial use |
 | Qwen3-TTS VoiceDesign 1.7B (MLX bf16) | Apache 2.0 | Alibaba/Qwen via mlx-community |
 
+## Testing & Linting
+
+```bash
+uv sync --extra dev              # install pytest + ruff
+uv run pytest tests/ -v          # run the test suite
+uv run ruff check .              # lint
+```
+
+Tests should pass before submitting changes.
+
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/your-feature`)
 3. Make your changes
-4. Submit a pull request
-
-There is currently no test suite or linter configuration. If you're adding one, that's welcome.
+4. Run `uv run pytest tests/ -v` and `uv run ruff check .` — both should pass
+5. Submit a pull request
 
 ## License
 
