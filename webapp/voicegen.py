@@ -14,6 +14,8 @@ import time
 import uuid
 from pathlib import Path
 
+from mlx_lock import mlx_lock
+
 logger = logging.getLogger(__name__)
 
 # ── State ──
@@ -21,6 +23,9 @@ _model = None
 _model_lock = threading.Lock()
 _jobs: dict[str, dict] = {}
 _job_lock = threading.Lock()
+_job_queue: list[tuple[dict, Path]] = []
+_queue_lock = threading.Lock()
+_worker_started = False
 
 MODEL_ID = "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
 
@@ -156,6 +161,34 @@ def get_cached_voice(project_dir: Path, entity_slug: str, text: str, instruct: s
     return None
 
 
+def _worker_loop():
+    """Background worker: processes one voice job at a time."""
+    while True:
+        item = None
+        with _queue_lock:
+            if _job_queue:
+                item = _job_queue.pop(0)
+
+        if item is None:
+            time.sleep(0.5)
+            continue
+
+        job, project_dir = item
+        job["status"] = "generating"
+
+        with mlx_lock:
+            _run_job(job, project_dir)
+
+
+def _ensure_worker():
+    global _worker_started
+    if _worker_started:
+        return
+    _worker_started = True
+    t = threading.Thread(target=_worker_loop, daemon=True, name="voicegen-worker")
+    t.start()
+
+
 def submit_job(
     text: str,
     instruct: str,
@@ -184,9 +217,11 @@ def submit_job(
                 "cached": True,
             }
 
+    _ensure_worker()
+
     job = {
         "job_id": job_id,
-        "status": "pending",
+        "status": "queued",
         "entity_slug": entity_slug,
         "entity_name": entity_name,
         "entity_type": entity_type,
@@ -198,23 +233,22 @@ def submit_job(
         "created_at": time.time(),
         "completed_at": None,
         "filename": None,
+        "url": None,
         "error": None,
     }
 
     with _job_lock:
         _jobs[job_id] = job
 
-    thread = threading.Thread(target=_run_job, args=(job, project_dir), daemon=True)
-    thread.start()
+    with _queue_lock:
+        _job_queue.append((job, project_dir))
 
     return job
 
 
 def _run_job(job: dict, project_dir: Path):
-    """Execute a voice generation job in background."""
+    """Execute a voice generation job (called by worker with mlx_lock held)."""
     try:
-        job["status"] = "generating"
-
         model = _get_model()
         if model is None:
             job["status"] = "failed"
@@ -254,6 +288,7 @@ def _run_job(job: dict, project_dir: Path):
 
         job["status"] = "completed"
         job["filename"] = filename
+        job["url"] = f"/api/project/{job['project_slug']}/voices/{filename}"
         job["completed_at"] = time.time()
         logger.info("Voice generated: %s (%.1fs audio)",
                      filename, len(audio) / sample_rate)
@@ -274,3 +309,8 @@ def get_all_jobs(project: str | None = None) -> list[dict]:
     if project:
         jobs = [j for j in jobs if j.get("project_slug") == project]
     return sorted(jobs, key=lambda j: j.get("created_at", 0), reverse=True)
+
+
+def get_queue_length() -> int:
+    with _queue_lock:
+        return len(_job_queue)

@@ -24,6 +24,8 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
+from mlx_lock import mlx_lock
+
 # Eagerly import PreTrainedTokenizer before any other transformers usage.
 # transformers 5.x uses lazy imports that race with concurrent model loading
 # (voicegen loads Qwen3-TTS in parallel, partially resolving the lazy module
@@ -316,18 +318,19 @@ def _worker_loop():
         with _jobs_lock:
             _jobs[job_id]["status"] = "running"
 
-        success, result = _generate_sync(
-            prompt=job["prompt"],
-            project_dir=job["project_dir"],
-            entity_slug=job["entity_slug"],
-            job_id=job_id,
-            seed=job.get("seed"),
-            steps=job.get("steps", DEFAULT_STEPS),
-            width=job.get("width", DEFAULT_WIDTH),
-            height=job.get("height", DEFAULT_HEIGHT),
-            style=job.get("style", "default"),
-            cache_subdir=job.get("cache_subdir", "output/images"),
-        )
+        with mlx_lock:
+            success, result = _generate_sync(
+                prompt=job["prompt"],
+                project_dir=job["project_dir"],
+                entity_slug=job["entity_slug"],
+                job_id=job_id,
+                seed=job.get("seed"),
+                steps=job.get("steps", DEFAULT_STEPS),
+                width=job.get("width", DEFAULT_WIDTH),
+                height=job.get("height", DEFAULT_HEIGHT),
+                style=job.get("style", "default"),
+                cache_subdir=job.get("cache_subdir", "output/images"),
+            )
 
         with _jobs_lock:
             _jobs[job_id]["completed_at"] = time.time()

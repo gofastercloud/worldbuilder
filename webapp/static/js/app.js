@@ -86,9 +86,12 @@ const ENTITY_ICONS = {
 
 // Image generation state
 let imagegenAvailable = null; // null = unknown, true/false after check
-let activeJobs = {};  // job_id -> {entityType, entitySlug, entityName}
+let activeJobs = {};  // job_id -> {entityType, entitySlug, entityName, kind: "image"|"voice"}
 let lastCompletionCheck = Date.now() / 1000;
 let completionPollInterval = null;
+
+// Unified generation queue state — header indicator only (backend serializes MLX)
+let genQueuePollInterval = null;
 
 const SIGNIFICANCE_COLORS = {
   "world-changing": "#f85149", major: "#d29922", moderate: "#58a6ff",
@@ -1228,6 +1231,8 @@ async function generateAndPlayVoice(entitySlug) {
       return;
     }
 
+    activeJobs[jobId] = { entityType: "character", entitySlug, entityName: entitySlug, kind: "voice" };
+    startGenQueuePolling();
     pollVoiceJob(jobId, entitySlug);
 
   } catch (e) {
@@ -1246,6 +1251,7 @@ function pollVoiceJob(jobId, entitySlug) {
 
       if (data.status === "completed" && data.filename) {
         clearInterval(interval);
+        delete activeJobs[jobId];
         const url = `/api/project/${currentProject}/voices/${data.filename}`;
         if (statusEl) { statusEl.className = "voice-status"; statusEl.textContent = ""; }
         if (btn) {
@@ -1255,8 +1261,13 @@ function pollVoiceJob(jobId, entitySlug) {
         playVoice(entitySlug, url);
       } else if (data.status === "failed") {
         clearInterval(interval);
+        delete activeJobs[jobId];
         if (statusEl) { statusEl.className = "voice-status"; statusEl.textContent = data.error || "Generation failed"; }
         if (btn) btn.disabled = false;
+      } else if (data.status === "queued") {
+        if (statusEl) { statusEl.className = "voice-loading"; statusEl.textContent = "Queued — waiting for other generation to finish..."; }
+      } else if (data.status === "generating") {
+        if (statusEl) { statusEl.className = "voice-loading"; statusEl.textContent = "Generating voice..."; }
       }
       // Otherwise keep polling
     } catch {
@@ -1354,8 +1365,10 @@ async function generateEntityImage(entityType, entitySlug, force = false) {
     activeJobs[jobId] = {
       entityType, entitySlug,
       entityName: data.entity_name || entitySlug,
+      kind: "image",
     };
     ensureCompletionPolling();
+    startGenQueuePolling();
 
     if (status) {
       status.textContent = `Queued (job ${jobId}) — you can navigate away; you'll be notified when done.`;
@@ -1519,6 +1532,68 @@ async function pollCompletions() {
       }
     }
   } catch { /* silent */ }
+}
+
+
+// ─── Generation Queue Header Indicator ───────────────────────────────────
+// Shows a small badge in the header when image/voice jobs are queued or active.
+// Does NOT disable buttons — the backend serializes MLX model access safely.
+
+function startGenQueuePolling() {
+  if (genQueuePollInterval) return;
+  genQueuePollInterval = setInterval(pollGenQueue, 2000);
+  pollGenQueue();
+}
+
+function stopGenQueuePolling() {
+  if (genQueuePollInterval) {
+    clearInterval(genQueuePollInterval);
+    genQueuePollInterval = null;
+  }
+}
+
+async function pollGenQueue() {
+  try {
+    const res = await fetch("/api/genqueue/status");
+    const data = await res.json();
+    updateGenQueueBadge(data);
+    if (!data.busy && data.total_queued === 0 && Object.keys(activeJobs).length === 0) {
+      stopGenQueuePolling();
+    }
+  } catch { /* silent */ }
+}
+
+function updateGenQueueBadge(data) {
+  let badge = document.getElementById("gen-queue-badge");
+  const busy = data.busy || data.total_queued > 0;
+
+  if (!busy) {
+    if (badge) badge.style.display = "none";
+    return;
+  }
+
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.id = "gen-queue-badge";
+    badge.className = "gen-queue-badge";
+    // Insert into the nav bar, before the action buttons
+    const navActions = document.querySelector(".nav-actions");
+    if (navActions) navActions.parentNode.insertBefore(badge, navActions);
+  }
+
+  const parts = [];
+  if (data.image_queue > 0 || (data.busy && data.voice_queue === 0)) {
+    parts.push(`🖼️ ${data.image_queue > 0 ? data.image_queue : "⏳"}`);
+  }
+  if (data.voice_queue > 0) {
+    parts.push(`🔊 ${data.voice_queue}`);
+  }
+  if (parts.length === 0 && data.busy) {
+    parts.push("⏳");
+  }
+
+  badge.innerHTML = parts.join(" &nbsp;");
+  badge.style.display = "inline-flex";
 }
 
 

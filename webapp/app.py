@@ -31,6 +31,7 @@ from voicegen import (
     submit_job as voice_submit_job, get_job as voice_get_job,
     get_all_jobs as voice_get_all_jobs,
     preload_model as voice_preload_model,
+    get_queue_length as voice_queue_length,
 )
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
@@ -655,13 +656,27 @@ def api_check_entity_image(slug, etype, entity_slug):
     if not image_prompt:
         return jsonify({"cached": False, "has_prompt": False})
 
+    # Enrich prompt the same way the generate endpoint does, so the cache
+    # key matches.  Check the most common style first (photorealistic),
+    # then fall back to default.
+    project_config = load_project(slug)
     project_dir = resolve_project_dir(slug)
-    cached = get_cached_image(project_dir, entity_slug, image_prompt)
+
+    for style in ("photorealistic", "default", "anime", "cartoon"):
+        enriched = enrich_prompt(image_prompt, meta, project_config, style=style)
+        cached = get_cached_image(project_dir, entity_slug, enriched)
+        if cached:
+            return jsonify({
+                "cached": True,
+                "has_prompt": True,
+                "url": f"/api/project/{slug}/images/{cached}",
+                "prompt": image_prompt,
+            })
 
     return jsonify({
-        "cached": cached is not None,
+        "cached": False,
         "has_prompt": True,
-        "url": f"/api/project/{slug}/images/{cached}" if cached else None,
+        "url": None,
         "prompt": image_prompt,
     })
 
@@ -677,6 +692,24 @@ def api_serve_image(slug, filename):
     if not (image_dir / filename).exists():
         return jsonify({"error": "Image not found"}), 404
     return send_from_directory(str(image_dir), filename, mimetype="image/png")
+
+
+# ─── Unified Generation Status ──────────────────────────────────────────────
+
+@app.route("/api/genqueue/status")
+def api_genqueue_status():
+    """Return whether any generation (image or voice) is currently active."""
+    from mlx_lock import mlx_lock
+    img_status = imagegen_status()
+    busy = mlx_lock.locked()
+    img_queued = img_status.get("queue_length", 0)
+    voice_queued = voice_queue_length()
+    return jsonify({
+        "busy": busy,
+        "image_queue": img_queued,
+        "voice_queue": voice_queued,
+        "total_queued": img_queued + voice_queued,
+    })
 
 
 # ─── Voice Generation ────────────────────────────────────────────────────────

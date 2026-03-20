@@ -123,6 +123,25 @@ body {
 
 .nav-actions { margin-left: auto; }
 
+.gen-queue-badge {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  margin-right: 8px;
+  padding: 4px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  animation: gen-pulse 2s ease-in-out infinite;
+}
+@keyframes gen-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
 /* ─── BUTTONS ──────────────────────────────────────────────────────────── */
 
 .btn {
