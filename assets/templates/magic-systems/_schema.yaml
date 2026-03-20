@@ -1,0 +1,182 @@
+# Magic System Schema — WorldBuilder
+# A magic system defines how magic works in the world.
+# Includes rules, practitioners, costs, and interaction with other systems.
+
+required:
+  - name
+  - type
+
+fields:
+  name:
+    type: string
+    description: "Name of the magic system"
+  aliases:
+    type: list
+    description: "Alternative names or cultural variants"
+    default: []
+  type:
+    type: enum
+    values: [arcane, divine, natural, psionic, technological, cosmic, blood, elemental, custom]
+    description: "Primary magic type"
+
+  # ─── SOURCE & ORIGIN ────────────────────────────────────────────────────────
+  source:
+    type: string
+    description: "Where this magic comes from (ley-lines, gods, nature, mind, technology, etc.)"
+  origin_event:
+    type: string
+    description: "How this magic system came into being"
+
+  # ─── MECHANICS ──────────────────────────────────────────────────────────────
+  rules:
+    type: list
+    description: "What magic can and cannot do"
+    default: []
+  can_do:
+    type: list
+    description: "Specific abilities and effects possible"
+    default: []
+  cannot_do:
+    type: list
+    description: "Hard limitations and impossibilities"
+    default: []
+  mechanics:
+    type: string
+    description: "How spells/effects are cast or activated"
+
+  # ─── COST & RESOURCE ────────────────────────────────────────────────────────
+  cost:
+    type: object
+    description: "What practitioners pay to use magic"
+    fields:
+      type:
+        type: enum
+        values: [mana, life-force, memory, sanity, time, materials, ritual, currency, favor, sacrifice, custom]
+        description: "Primary resource cost"
+      amount:
+        type: string
+        description: "Typical cost amount or scaling"
+      side_effects:
+        type: list
+        description: "Consequences beyond the resource cost"
+        default: []
+
+  # ─── LIMITATIONS ────────────────────────────────────────────────────────────
+  limitations:
+    type: list
+    description: "Restrictions on magic use"
+    default: []
+  learning_difficulty:
+    type: enum
+    values: [trivial, easy, moderate, difficult, very-difficult, nearly-impossible]
+    default: moderate
+    description: "How hard it is to learn this magic"
+  counter_magic:
+    type: string
+    description: "Methods to counter or nullify this magic"
+  weaknesses:
+    type: list
+    description: "Things that weaken or resist this magic"
+    default: []
+
+  # ─── PRACTITIONERS ──────────────────────────────────────────────────────────
+  practitioners:
+    type: list
+    description: "Who can use this magic"
+    items:
+      type:
+        type: string
+        description: "Type of practitioner (e.g., 'mage', 'cleric', 'sorcerer')"
+      requirement:
+        type: string
+        description: "What's needed to be this type (training, bloodline, divine favor, etc.)"
+    default: []
+  famous_practitioners:
+    type: list
+    description: "Known masters or users"
+    items:
+      type: ref
+      target: characters
+    default: []
+
+  # ─── PROGRESSION & RANKS ────────────────────────────────────────────────────
+  ranks:
+    type: list
+    description: "Power levels or mastery tiers"
+    items:
+      name:
+        type: string
+        description: "Rank name"
+      description:
+        type: string
+        description: "What practitioners at this rank can do"
+      requirements:
+        type: list
+        description: "How to reach this rank"
+        default: []
+    default: []
+
+  # ─── FORBIDDEN USES ─────────────────────────────────────────────────────────
+  forbidden_uses:
+    type: list
+    description: "Things that cannot be done with this magic"
+    default: []
+  forbidden_consequences:
+    type: string
+    description: "What happens if forbidden magic is used"
+  ethical_stance:
+    type: enum
+    values: [universally-accepted, widely-accepted, neutral, controversial, widely-forbidden, universally-forbidden]
+    default: neutral
+    description: "Social/moral acceptability"
+
+  # ─── INTERACTION WITH OTHER SYSTEMS ────────────────────────────────────────
+  interaction_with_tech:
+    type: object
+    description: "How magic interacts with technology"
+    fields:
+      enhances:
+        type: boolean
+        default: false
+      interferes:
+        type: boolean
+        default: false
+      incompatible:
+        type: boolean
+        default: false
+      notes:
+        type: string
+  interaction_with_other_magic:
+    type: string
+    description: "How this magic type interacts with other magic systems"
+
+  # ─── CULTURE & HISTORY ──────────────────────────────────────────────────────
+  cultural_significance:
+    type: string
+    description: "How this magic affects society and culture"
+  first_documented_use:
+    type: string
+    description: "When/where this magic was first used or discovered"
+  history:
+    type: string
+    description: "Evolution of this magic system over time"
+
+  # ─── DESCRIPTIONS ───────────────────────────────────────────────────────────
+  descriptions:
+    type: object
+    description: "Multiple description styles"
+    fields:
+      machine:
+        type: string
+        description: "Concise, factual description"
+      human:
+        type: string
+        description: "Narrative-style description"
+      image_prompt:
+        type: string
+        description: "Prompt for generating artwork of magic in use"
+
+  # ─── META ───────────────────────────────────────────────────────────────────
+  tags:
+    type: list
+    default: []

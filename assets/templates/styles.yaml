@@ -1,0 +1,221 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# WORLDBUILDER — STYLE SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# Top-level style configuration that influences ALL generated content:
+#   - Prose generation (voice, tone, vocabulary, pacing)
+#   - Image generation (art style, lighting, color palette, camera)
+#   - Entity descriptions (human, machine, and image-prompt variants)
+#
+# Style settings live in project.yaml under 'style:' and cascade:
+#   project style → per-book overrides → per-chapter overrides
+#
+# The three-description system:
+#   1. human_description  — What a reader sees. Evocative, styled prose.
+#   2. machine_description — What Claude uses for consistent generation.
+#                           Structured, factual, deterministic. No flourish.
+#   3. image_prompt        — What a text-to-image model receives.
+#                           Optimized for the visual_style setting.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ─── VISUAL STYLE ─────────────────────────────────────────────────────────────
+# Controls image generation prompts and visual descriptor formatting.
+visual_style:
+  preset:
+    type: enum
+    values:
+      - realistic          # Photorealistic, cinematic lighting (like the Kael reference)
+      - painterly          # Oil painting, concept art feel (Frazetta, Vallejo)
+      - anime              # Japanese animation style (Ghibli, Makoto Shinkai)
+      - manga              # Black and white manga panels
+      - comic-book         # Western comic style (Marvel/DC)
+      - pixel-art          # Retro pixel art
+      - art-nouveau        # Mucha-inspired decorative style
+      - dark-fantasy       # Berserk, Dark Souls aesthetic
+      - sci-fi-concept     # Hard SF concept art (Syd Mead, Chris Foss)
+      - cyberpunk          # Neon-noir (Blade Runner, Akira)
+      - watercolor         # Soft, flowing watercolor illustration
+      - woodcut            # Medieval woodcut / linoprint style
+      - stained-glass      # Stylized religious/mythic art
+      - custom
+    default: realistic
+
+  # Modifiers applied to ALL image prompts
+  global_modifiers:
+    lighting:
+      type: enum
+      values: [natural, dramatic, cinematic, soft, harsh, neon, candlelit, moonlit, golden-hour, overcast, custom]
+      default: cinematic
+    color_palette:
+      type: enum
+      values: [vibrant, muted, monochrome, warm, cool, earth-tones, jewel-tones, pastel, desaturated, high-contrast, custom]
+      default: muted
+    camera:
+      type: enum
+      values: [eye-level, low-angle, high-angle, birds-eye, dutch-angle, close-up, medium-shot, wide-shot, portrait, cinematic-wide, custom]
+      default: cinematic-wide
+    mood:
+      type: enum
+      values: [epic, intimate, ominous, hopeful, melancholy, tense, serene, chaotic, mysterious, triumphant, custom]
+      default: epic
+    detail_level:
+      type: enum
+      values: [minimal, moderate, detailed, hyper-detailed]
+      default: detailed
+    negative_prompt:
+      type: string
+      description: "Things to AVOID in image generation (e.g. 'cartoon, chibi, watermark, text')"
+      default: "watermark, text, logo, signature, blurry, low quality, deformed"
+
+  # Per-entity-type prompt templates
+  # These assemble the final image prompt from entity fields + style settings.
+  prompt_templates:
+    character: >
+      {visual_style.preset} portrait of {name}, {species} {race},
+      {physical_description}. {clothing_and_equipment}.
+      Setting: {location}. Mood: {visual_style.mood}.
+      {visual_style.lighting} lighting, {visual_style.color_palette} palette,
+      {visual_style.camera} shot, {visual_style.detail_level} detail.
+      --no {visual_style.negative_prompt}
+
+    location: >
+      {visual_style.preset} {location_type} landscape,
+      {description}. Climate: {climate}. Time: {time_of_day}.
+      {visual_style.lighting} lighting, {visual_style.color_palette} palette,
+      {visual_style.camera} shot, {visual_style.detail_level} detail.
+      --no {visual_style.negative_prompt}
+
+    item: >
+      {visual_style.preset} {item_type}, {description}.
+      Materials: {materials}. Context: {context}.
+      {visual_style.lighting} lighting, {visual_style.detail_level} detail.
+      --no {visual_style.negative_prompt}
+
+    scene: >
+      {visual_style.preset} scene, {description}.
+      Characters: {characters}. Location: {location}.
+      Action: {action}. Mood: {mood}.
+      {visual_style.lighting} lighting, {visual_style.color_palette} palette,
+      {visual_style.camera} shot, {visual_style.detail_level} detail.
+      --no {visual_style.negative_prompt}
+
+    map: >
+      {visual_style.preset} fantasy map of {region},
+      showing {features}. Style: {map_style}.
+      {visual_style.color_palette} palette, birds-eye view.
+      --no {visual_style.negative_prompt}
+
+
+# ─── PROSE STYLE ──────────────────────────────────────────────────────────────
+# Controls how Claude generates prose: voice, vocabulary, sentence structure.
+prose_style:
+  preset:
+    type: enum
+    values:
+      - literary           # Elegant, metaphor-rich, Rothfuss/Le Guin
+      - pulp               # Fast-paced, punchy, action-forward, Howard/Salvatore
+      - young-adult        # Accessible, emotional, shorter sentences, Sanderson/Riordan
+      - dark               # Grim, unflinching, morally gray, Abercrombie/Martin
+      - gritty             # Street-level, visceral, noir-influenced, Morgan/Low Town
+      - epic               # Grand scope, formal, Tolkien/Jordan
+      - litrpg             # Game-stat awareness, progression focus, system-visible
+      - cozy               # Warm, low-stakes, comfort, Pratchett/Becky Chambers
+      - horror             # Dread-building, unreliable narrator, King/Barker
+      - hard-sf            # Technical precision, idea-driven, Clarke/Egan
+      - space-opera        # Grand space adventure, Banks/Reynolds
+      - noir               # First-person cynical, hardboiled, Chandler-esque
+      - fairy-tale         # Once-upon-a-time, archetypal, oral tradition feel
+      - custom
+    default: literary
+
+  # Fine-grained prose controls
+  voice:
+    pov:
+      type: enum
+      values: [first-person, second-person, third-limited, third-omniscient, third-deep, rotating-pov, unreliable]
+      default: third-limited
+    tense:
+      type: enum
+      values: [past, present, future]
+      default: past
+    formality:
+      type: enum
+      values: [colloquial, casual, neutral, formal, archaic, mixed]
+      default: neutral
+      description: "How formal is the narrative voice? (dialogue has its own formality per character)"
+
+  vocabulary:
+    complexity:
+      type: enum
+      values: [simple, moderate, rich, ornate]
+      default: moderate
+      description: "Vocabulary range — 'simple' for YA, 'ornate' for literary epic"
+    anachronism_tolerance:
+      type: enum
+      values: [strict, moderate, loose]
+      default: moderate
+      description: "How strict about period-appropriate language? 'strict' bans all modern phrasing"
+    profanity:
+      type: enum
+      values: [none, mild, moderate, heavy, invented-only]
+      default: invented-only
+      description: "'invented-only' means characters swear using in-world oaths, not real-world profanity"
+
+  pacing:
+    default_tempo:
+      type: enum
+      values: [breakneck, fast, moderate, deliberate, slow, variable]
+      default: moderate
+    scene_length:
+      type: enum
+      values: [short, medium, long, variable]
+      default: medium
+      description: "Target scene length — short (~500w), medium (~1500w), long (~3000w)"
+    chapter_length:
+      type: string
+      default: "3000-5000 words"
+
+  content_rating:
+    type: enum
+    values:
+      - all-ages           # No violence, no romance, no horror
+      - middle-grade       # Mild peril, no gore, no romance
+      - young-adult        # Violence without gore, fade-to-black romance
+      - adult              # On-page violence, romance, dark themes
+      - mature             # Graphic violence, explicit content, extreme themes
+    default: adult
+
+  # Prose modifiers that apply to machine_description → human_description conversion
+  description_modifiers:
+    sensory_emphasis:
+      type: list
+      description: "Which senses to emphasize in descriptions"
+      default: [sight, sound, smell]
+    metaphor_density:
+      type: enum
+      values: [sparse, moderate, rich]
+      default: moderate
+    internal_monologue:
+      type: enum
+      values: [minimal, moderate, deep]
+      default: moderate
+      description: "How much of POV character's thoughts appear on page"
+
+
+# ─── NARRATION STYLE ──────────────────────────────────────────────────────────
+# For AI audiobook narration output
+narration_style:
+  preset:
+    type: enum
+    values: [dramatic, conversational, formal, storyteller, neutral, documentary]
+    default: dramatic
+  voice_direction:
+    type: string
+    description: "General direction for narrator voice (e.g. 'warm baritone, measured pace, British RP')"
+  character_voices:
+    type: boolean
+    default: true
+    description: "Should the narrator do distinct voices for dialogue?"
+  pacing:
+    type: enum
+    values: [slow, moderate, fast, dynamic]
+    default: dynamic

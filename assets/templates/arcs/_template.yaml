@@ -1,0 +1,32 @@
+# Story/Character Arc — WorldBuilder
+
+name: "{{NAME}}"
+type: character | plot | subplot | mystery | romance | redemption | tragedy | quest | custom
+status: planned | active | resolved | abandoned
+
+# Who/what this arc follows
+subject: ""              # ref to character (for character arcs) or description (for plot arcs)
+
+# Arc structure (flexible — use what fits)
+setup: ""                # The status quo / initial state
+inciting_incident: ""    # What kicks it off
+rising_action: []        # Key escalation beats
+midpoint: ""             # Major shift or revelation
+crisis: ""               # Darkest moment / hardest choice
+climax: ""               # Peak confrontation / resolution
+resolution: ""           # New status quo
+
+# Tracking
+chapters: []             # Which chapters contain beats for this arc
+characters_involved: []  # refs to characters
+themes: []               # Thematic tags
+foreshadowing: []        # Planted clues/setups that need payoff
+payoffs: []              # Resolved setups
+unresolved: []           # Open threads (for series / cliffhangers)
+
+# Series connections
+book: 1
+continues_in: ""         # ref to arc in next book
+continued_from: ""       # ref to arc from previous book
+
+notes: ""

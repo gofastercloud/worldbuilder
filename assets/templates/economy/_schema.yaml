@@ -1,0 +1,222 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# ECONOMY SCHEMA — WorldBuilder
+# ═══════════════════════════════════════════════════════════════════════════════
+# Models the economic systems of the world: resources, production, trade routes,
+# currencies, faction wealth, and how events affect the economy.
+#
+# The economy is built from three layers:
+#   1. Resources — What exists in the world (iron, grain, mana crystals)
+#   2. Production — Which locations produce/consume what
+#   3. Trade — How goods flow between locations via transport routes
+#
+# Economic state can change over time via event impacts (wars destroy
+# production, plagues reduce labor, discoveries open new trade routes).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ─── RESOURCE DEFINITION ─────────────────────────────────────────────────────
+resource:
+  required: [name, category]
+  fields:
+    name:
+      type: string
+    aliases:
+      type: list
+      default: []
+    category:
+      type: enum
+      values:
+        - raw-material       # Iron ore, timber, stone, clay
+        - food               # Grain, livestock, fish, fruit
+        - luxury             # Silk, spices, gems, perfume
+        - strategic          # Weapons, armor, ships, siege equipment
+        - magical            # Mana crystals, enchanted materials, reagents
+        - knowledge          # Books, scrolls, maps, research
+        - labor              # Skilled workers, slaves, mercenaries
+        - currency           # Gold, silver, trade tokens
+        - fuel               # Coal, oil, mana, wood
+        - custom
+    rarity:
+      type: enum
+      values: [abundant, common, uncommon, rare, very-rare, unique]
+      default: common
+    base_value:
+      type: string
+      description: "Baseline value in the world's primary currency"
+    unit:
+      type: string
+      description: "How it's measured (bushels, ingots, barrels, tons)"
+    perishable:
+      type: boolean
+      default: false
+    requires_tech:
+      type: string
+      description: "Tech flag required to exploit this resource (e.g. 'mining' for deep ores)"
+    tags:
+      type: list
+      default: []
+
+# ─── PRODUCTION NODE ──────────────────────────────────────────────────────────
+# Each location can have production entries defining what it makes/grows/mines.
+production:
+  fields:
+    resource:
+      type: ref
+      target: resource
+    location:
+      type: ref
+      target: location
+    output:
+      type: string
+      description: "Production rate (e.g. '500 bushels/year', '20 ingots/month')"
+    quality:
+      type: enum
+      values: [poor, standard, fine, exceptional, legendary]
+      default: standard
+    labor_source:
+      type: string
+      description: "Who works this (guilds, slaves, machines, magic)"
+    status:
+      type: enum
+      values: [active, disrupted, destroyed, depleted, seasonal, new]
+      default: active
+    disrupted_by:
+      type: list
+      items: { type: ref, target: event }
+      description: "Events that disrupted this production"
+      default: []
+
+# ─── TRADE ROUTE ──────────────────────────────────────────────────────────────
+# Overlays on transport routes with economic data.
+trade_route:
+  fields:
+    name:
+      type: string
+    from_location:
+      type: ref
+      target: location
+    to_location:
+      type: ref
+      target: location
+    transport_route:
+      type: string
+      description: "Which transport route this uses"
+    goods:
+      type: list
+      description: "What flows along this route"
+      items:
+        resource: { type: ref, target: resource }
+        direction: { type: enum, values: [outbound, inbound, both] }
+        volume: { type: string, description: "Amount per unit time" }
+    annual_value:
+      type: string
+      description: "Estimated annual trade value"
+    controlled_by:
+      type: ref
+      target: faction
+    tariff:
+      type: string
+      description: "Tax/tariff rate"
+    status:
+      type: enum
+      values: [active, disrupted, blockaded, destroyed, seasonal, new]
+      default: active
+    risks:
+      type: list
+      default: []
+      description: "Bandits, pirates, monsters, weather"
+
+# ─── CURRENCY ─────────────────────────────────────────────────────────────────
+currency:
+  fields:
+    name:
+      type: string
+    symbol:
+      type: string
+    denominations:
+      type: list
+      items:
+        name: { type: string }
+        value: { type: number, description: "Value relative to base unit" }
+        material: { type: string }
+    issuing_authority:
+      type: ref
+      target: faction
+    accepted_in:
+      type: list
+      items: { type: ref, target: location }
+      default: []
+    exchange_rates:
+      type: list
+      items:
+        currency: { type: string }
+        rate: { type: number }
+      default: []
+
+# ─── FACTION ECONOMICS ───────────────────────────────────────────────────────
+# Added to faction metadata to track economic power.
+faction_economy:
+  fields:
+    wealth_level:
+      type: enum
+      values: [destitute, poor, modest, comfortable, wealthy, rich, vast, incalculable]
+    income_sources:
+      type: list
+      items:
+        source: { type: string, description: "What generates income" }
+        amount: { type: string }
+        reliability: { type: enum, values: [unstable, seasonal, steady, guaranteed] }
+      default: []
+    expenses:
+      type: list
+      items:
+        category: { type: string }
+        amount: { type: string }
+      default: []
+    treasury:
+      type: string
+      description: "Current reserves"
+    debts:
+      type: list
+      items:
+        creditor: { type: ref, target: faction }
+        amount: { type: string }
+        due: { type: string }
+      default: []
+    economic_strategy:
+      type: string
+      description: "How this faction approaches wealth (hoarding, investing, military spending, etc.)"
+
+# ─── EVENT ECONOMIC IMPACT ───────────────────────────────────────────────────
+# Added to event metadata to track how events affect the economy.
+event_economic_impact:
+  fields:
+    production_effects:
+      type: list
+      items:
+        location: { type: ref, target: location }
+        resource: { type: string }
+        change: { type: enum, values: [destroyed, halved, disrupted, reduced, unchanged, increased, doubled, new] }
+        duration: { type: string }
+      default: []
+    trade_effects:
+      type: list
+      items:
+        route: { type: string }
+        change: { type: enum, values: [destroyed, blockaded, disrupted, rerouted, unchanged, opened, expanded] }
+        duration: { type: string }
+      default: []
+    wealth_transfers:
+      type: list
+      items:
+        from: { type: ref, target: faction }
+        to: { type: ref, target: faction }
+        amount: { type: string }
+        reason: { type: string }
+      default: []
+    price_effects:
+      type: list
+      items:
+        resource: { type: string }
+        change: { type: enum, values: [crashed, dropped, stable, rose, spiked, unavailable] }
+        location: { type: string, description: "Where the price change is felt" }
+      default: []

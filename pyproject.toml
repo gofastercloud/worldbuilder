@@ -1,0 +1,39 @@
+[project]
+name = "worldbuilder"
+version = "0.1.0"
+description = "Structured worldbuilding and book-writing system — CLI, MCP server, and web UI"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+voicegen = [
+    "mlx-audio>=0.4.1",
+    "numpy>=2.2.6",
+    "soundfile>=0.13.1",
+]
+imagegen = [
+    "mflux>=0.16",
+]
+all-media = [
+    "worldbuilder[voicegen,imagegen]",
+]
+mcp = [
+    "mcp[cli]>=1.0",
+]
+dev = [
+    "ruff",
+    "pytest",
+]
+
+[project.scripts]
+worldbuilder = "scripts.worldbuilder:main"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]

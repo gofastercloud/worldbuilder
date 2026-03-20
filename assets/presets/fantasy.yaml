@@ -1,0 +1,70 @@
+# Fantasy Genre Preset — WorldBuilder
+
+genre: fantasy
+description: "High/low fantasy, sword & sorcery, epic fantasy"
+
+species_options:
+  - human
+  - elf
+  - dwarf
+  - halfling
+  - orc
+  - gnome
+  - dragonborn
+  - tiefling
+  - custom
+
+magic_types:
+  - arcane
+  - divine
+  - elemental
+  - nature
+  - blood
+  - rune
+  - psionic
+  - custom
+
+common_factions:
+  - kingdom
+  - guild
+  - religion
+  - military-order
+  - criminal-syndicate
+  - mage-circle
+  - tribal-confederation
+  - merchant-league
+
+location_types:
+  - realm
+  - continent
+  - kingdom
+  - city
+  - town
+  - village
+  - fortress
+  - dungeon
+  - ruins
+  - temple
+  - wilderness
+  - pocket-realm
+
+tech_level: medieval
+currency_default: "gold/silver/copper"
+
+themes:
+  - good-vs-evil
+  - power-corrupts
+  - chosen-one
+  - quest
+  - coming-of-age
+  - war
+  - prophecy
+  - lost-magic
+  - ancient-evil
+
+chapter_pov_styles:
+  - single-pov        # One character per chapter (e.g. ASOIAF)
+  - omniscient         # Third-person omniscient
+  - limited-third      # Close third person, one character focus
+  - first-person       # First person (one narrator)
+  - rotating-first     # Multiple first-person narrators

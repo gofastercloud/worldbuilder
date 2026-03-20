@@ -1,0 +1,166 @@
+# Arc Schema — WorldBuilder
+# An arc is a narrative thread with clear beginning, middle, and end.
+# Includes main plot arcs, subplots, character arcs, and world-changing events.
+
+required:
+  - name
+  - type
+
+fields:
+  name:
+    type: string
+    description: "Arc name or title"
+  aliases:
+    type: list
+    description: "Alternative names"
+    default: []
+  type:
+    type: enum
+    values: [main, subplot, character-arc, faction-arc, world-arc]
+    description: "Type of narrative arc"
+  status:
+    type: enum
+    values: [planned, in-progress, completed, abandoned]
+    default: planned
+    description: "Current progress status"
+
+  # ─── STRUCTURE ──────────────────────────────────────────────────────────────
+  books:
+    type: list
+    description: "Which books/volumes this arc spans"
+    items:
+      type: ref
+      target: books
+    default: []
+  chapters:
+    type: object
+    description: "Chapter range where arc occurs"
+    fields:
+      start:
+        type: string
+        description: "First chapter/session"
+      end:
+        type: string
+        description: "Final chapter/session"
+      start_number:
+        type: number
+        description: "Numeric start (for parsing)"
+      end_number:
+        type: number
+        description: "Numeric end (for parsing)"
+
+  # ─── PARTICIPANTS ───────────────────────────────────────────────────────────
+  characters_involved:
+    type: list
+    description: "Characters central to this arc"
+    items:
+      type: ref
+      target: characters
+    default: []
+  factions_involved:
+    type: list
+    description: "Factions central to this arc"
+    items:
+      type: ref
+      target: factions
+    default: []
+  locations:
+    type: list
+    description: "Key locations where arc takes place"
+    items:
+      type: ref
+      target: locations
+    default: []
+
+  # ─── NARRATIVE ELEMENTS ────────────────────────────────────────────────────
+  themes:
+    type: list
+    description: "Major themes explored"
+    default: []
+  hook:
+    type: string
+    description: "How the arc begins; what draws reader in"
+  inciting_incident:
+    type: string
+    description: "The event that sets the arc in motion"
+
+  climax_summary:
+    type: string
+    description: "What happens at the arc's climax"
+  resolution_summary:
+    type: string
+    description: "How the arc resolves"
+
+  cliffhangers:
+    type: list
+    description: "Unresolved questions or hanging threads"
+    default: []
+  revelation_count:
+    type: number
+    description: "Major revelations or surprises in this arc"
+    default: 0
+
+  # ─── THREADING ──────────────────────────────────────────────────────────────
+  setup_threads:
+    type: list
+    description: "Plot threads established in earlier arcs that lead here"
+    items:
+      from_arc:
+        type: ref
+        target: arcs
+      thread_description:
+        type: string
+    default: []
+  payoff_threads:
+    type: list
+    description: "Plot threads this arc resolves from earlier setup"
+    items:
+      resolves:
+        type: string
+        description: "Description of what gets resolved"
+    default: []
+  setup_for_next:
+    type: list
+    description: "Threads this arc establishes for future arcs"
+    default: []
+
+  # ─── PACING & STRUCTURE ────────────────────────────────────────────────────
+  pacing_notes:
+    type: string
+    description: "Notes on how fast/slow the arc moves"
+  act_structure:
+    type: object
+    description: "Three-act or custom structure breakdown"
+    fields:
+      act_1:
+        type: string
+        description: "Setup and establishment"
+      act_2:
+        type: string
+        description: "Complications and rising action"
+      act_3:
+        type: string
+        description: "Climax and resolution"
+  key_scenes:
+    type: list
+    description: "Most important scenes in order"
+    default: []
+
+  # ─── EMOTIONAL & THEMATIC ───────────────────────────────────────────────────
+  emotional_arc:
+    type: string
+    description: "Emotional journey of main character(s)"
+  stakes:
+    type: string
+    description: "What is at risk in this arc"
+  central_question:
+    type: string
+    description: "The question the arc answers"
+
+  # ─── META ───────────────────────────────────────────────────────────────────
+  first_appearance:
+    type: string
+    description: "When arc is first mentioned/hinted at"
+  tags:
+    type: list
+    default: []

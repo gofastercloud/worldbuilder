@@ -1,0 +1,272 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# WORLD CREATION WIZARD — T-Shirt Sizing & Generation Schema
+# ═══════════════════════════════════════════════════════════════════════════════
+# The wizard walks users through creating a world, or YOLO-generates everything.
+# T-shirt sizes control entity counts, complexity, and history depth.
+
+sizes:
+  S:
+    label: "Small — Short Story / One-Shot Campaign"
+    entities:
+      species: { min: 1, max: 3 }
+      races: { min: 1, max: 4 }
+      languages: { min: 1, max: 3 }
+      characters: { min: 3, max: 8 }
+      locations: { min: 2, max: 6 }
+      factions: { min: 1, max: 3 }
+      items: { min: 0, max: 3 }
+      events: { min: 3, max: 10 }
+      lineages: { min: 0, max: 2 }
+      arcs: { min: 1, max: 2 }
+      magic_systems: { min: 0, max: 1 }
+    history:
+      eras: { min: 1, max: 2 }
+      depth_years: { min: 50, max: 500 }
+      generation_passes: 1
+    economy:
+      currencies: { min: 1, max: 1 }
+      resources: { min: 2, max: 5 }
+      trade_routes: { min: 0, max: 2 }
+    geography:
+      max_depth: 3            # universe→continent→city
+      transport_modes: { min: 1, max: 3 }
+
+  M:
+    label: "Medium — Novel / Short Campaign Arc"
+    entities:
+      species: { min: 2, max: 5 }
+      races: { min: 3, max: 10 }
+      languages: { min: 2, max: 6 }
+      characters: { min: 8, max: 20 }
+      locations: { min: 5, max: 15 }
+      factions: { min: 2, max: 6 }
+      items: { min: 2, max: 8 }
+      events: { min: 10, max: 30 }
+      lineages: { min: 1, max: 4 }
+      arcs: { min: 2, max: 4 }
+      magic_systems: { min: 1, max: 2 }
+    history:
+      eras: { min: 2, max: 3 }
+      depth_years: { min: 200, max: 2000 }
+      generation_passes: 2
+    economy:
+      currencies: { min: 1, max: 3 }
+      resources: { min: 4, max: 10 }
+      trade_routes: { min: 1, max: 5 }
+    geography:
+      max_depth: 4            # universe→continent→region→city
+      transport_modes: { min: 2, max: 5 }
+
+  L:
+    label: "Large — Book Series / Full Campaign"
+    entities:
+      species: { min: 4, max: 10 }
+      races: { min: 6, max: 20 }
+      languages: { min: 4, max: 12 }
+      characters: { min: 20, max: 50 }
+      locations: { min: 12, max: 35 }
+      factions: { min: 4, max: 12 }
+      items: { min: 5, max: 15 }
+      events: { min: 25, max: 80 }
+      lineages: { min: 3, max: 8 }
+      arcs: { min: 3, max: 8 }
+      magic_systems: { min: 1, max: 3 }
+    history:
+      eras: { min: 3, max: 5 }
+      depth_years: { min: 1000, max: 10000 }
+      generation_passes: 3
+    economy:
+      currencies: { min: 2, max: 5 }
+      resources: { min: 8, max: 20 }
+      trade_routes: { min: 3, max: 10 }
+    geography:
+      max_depth: 5            # universe→continent→region→city→district
+      transport_modes: { min: 3, max: 8 }
+
+  XL:
+    label: "Extra Large — Epic Universe / Multi-Campaign Sandbox"
+    entities:
+      species: { min: 8, max: 20 }
+      races: { min: 12, max: 40 }
+      languages: { min: 8, max: 25 }
+      characters: { min: 40, max: 100 }
+      locations: { min: 25, max: 80 }
+      factions: { min: 8, max: 25 }
+      items: { min: 10, max: 30 }
+      events: { min: 50, max: 200 }
+      lineages: { min: 5, max: 15 }
+      arcs: { min: 5, max: 15 }
+      magic_systems: { min: 2, max: 5 }
+    history:
+      eras: { min: 4, max: 8 }
+      depth_years: { min: 5000, max: 50000 }
+      generation_passes: 5
+    economy:
+      currencies: { min: 3, max: 10 }
+      resources: { min: 12, max: 40 }
+      trade_routes: { min: 5, max: 25 }
+    geography:
+      max_depth: 7            # full hierarchy
+      transport_modes: { min: 4, max: 12 }
+
+
+# ─── WIZARD STEPS ──────────────────────────────────────────────────────────────
+# Interactive wizard walks through these phases in order.
+# YOLO mode skips prompts and generates everything from genre + size + seed.
+
+wizard_steps:
+  - id: basics
+    title: "Project Basics"
+    prompts:
+      - field: title
+        question: "What is the name of your world or project?"
+        required: true
+      - field: genre
+        question: "Genre?"
+        choices: [fantasy, scifi, modern, horror, post-apocalyptic, steampunk, custom]
+        default: fantasy
+      - field: project_type
+        question: "Project type?"
+        choices: [novel, series, campaign, game, worldbook]
+        default: novel
+      - field: size
+        question: "World complexity (t-shirt size)?"
+        choices: [S, M, L, XL]
+        default: M
+      - field: tone
+        question: "Tone / prose style?"
+        choices: [literary, pulp, young-adult, dark, gritty, epic, litrpg, cozy, horror, hard-sf, space-opera, noir, fairy-tale]
+        default: epic
+
+  - id: cosmology
+    title: "Cosmology & Physics"
+    prompts:
+      - field: creation_myth
+        question: "Brief creation myth or origin (or 'skip')?"
+        required: false
+      - field: magic_exists
+        question: "Does magic/technology-beyond-physics exist?"
+        choices: [yes, no, ambiguous]
+        default: yes
+      - field: calendar_name
+        question: "Name of the world's calendar?"
+        required: false
+        default: "Common Reckoning"
+
+  - id: geography
+    title: "Geography & Climate"
+    prompts:
+      - field: world_name
+        question: "Name of the primary world/planet/realm?"
+        required: true
+      - field: notable_regions
+        question: "List 2-5 key regions/continents (comma-separated, or 'generate')?"
+        required: false
+      - field: climate_variety
+        question: "Climate range?"
+        choices: [uniform, moderate-variety, extreme-variety]
+        default: moderate-variety
+
+  - id: peoples
+    title: "Species & Peoples"
+    prompts:
+      - field: species_approach
+        question: "Species approach?"
+        choices: [humans-only, few-species, many-species, cosmic-zoo]
+        default: few-species
+      - field: species_hints
+        question: "Any specific species to include (comma-separated, or 'generate')?"
+        required: false
+      - field: interbreeding
+        question: "Can different species interbreed?"
+        choices: [yes, no, rare-exceptions]
+        default: rare-exceptions
+
+  - id: politics
+    title: "Power & Factions"
+    prompts:
+      - field: political_structure
+        question: "Dominant political structure?"
+        choices: [monarchy, republic, tribal, theocracy, empire, fragmented, corporate, mixed]
+        default: mixed
+      - field: conflict_level
+        question: "Current geopolitical tension?"
+        choices: [peaceful, simmering, active-conflict, total-war, post-war]
+        default: simmering
+      - field: faction_hints
+        question: "Any key factions or organizations (comma-separated, or 'generate')?"
+        required: false
+
+  - id: history
+    title: "History & Timeline"
+    prompts:
+      - field: history_depth
+        question: "How deep is recorded history?"
+        choices: [shallow, moderate, deep, ancient]
+        default: moderate
+      - field: pivotal_events
+        question: "Any pivotal historical events to anchor (comma-separated, or 'generate')?"
+        required: false
+
+  - id: protagonist
+    title: "Central Characters"
+    prompts:
+      - field: protagonist_name
+        question: "Name of the protagonist (or 'generate')?"
+        required: false
+      - field: protagonist_archetype
+        question: "Protagonist archetype?"
+        choices: [reluctant-hero, chosen-one, anti-hero, everyman, scholar, outcast, soldier, trickster, generate]
+        default: generate
+      - field: antagonist_type
+        question: "Primary antagonist type?"
+        choices: [dark-lord, political-rival, nature, cosmic-force, self, organization, mystery, generate]
+        default: generate
+
+  - id: review
+    title: "Review & Generate"
+    description: "Summary of all choices, then generation begins."
+
+
+# ─── YOLO MODE ──────────────────────────────────────────────────────────────────
+# When mode=yolo, the wizard skips all prompts and generates everything from:
+#   genre + size + optional seed phrase
+# The seed phrase biases the generator (e.g. "viking seafarers" or "dying star")
+
+yolo:
+  description: "Full auto-generation from genre + size + optional seed"
+  required_inputs: [genre, size]
+  optional_inputs: [seed, tone, project_type]
+  defaults:
+    genre: fantasy
+    size: M
+    tone: epic
+    project_type: novel
+    seed: ""
+
+
+# ─── POST-GENERATION VALIDATION ────────────────────────────────────────────────
+# After wizard generates entities, ALL editors run validation.
+# This ensures consistency across all generated content.
+
+post_generation:
+  validation_editors:
+    - worldrules        # World flag compliance
+    - continuity        # Timeline & causality
+    - geography         # Spatial consistency
+    - characterization  # Character voice & traits
+    - lore              # Internal lore consistency
+    - sensitivity       # Content appropriateness
+
+  validation_order:
+    1: worldrules       # Must pass first — foundation rules
+    2: geography        # Spatial integrity
+    3: continuity       # Timeline integrity
+    4: lore             # Internal consistency
+    5: characterization # Character-level checks
+    6: sensitivity      # Final content review
+
+  on_failure:
+    strategy: fix-and-retry
+    max_retries: 3
+    escalation: "Flag issues for human review"

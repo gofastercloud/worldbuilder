@@ -1,0 +1,205 @@
+# Location Schema — WorldBuilder
+# Supports nested spatial hierarchy (universe→galaxy→system→planet→continent→...→room)
+# and multi-modal transport routes between locations.
+
+required:
+  - name
+  - type
+
+fields:
+  name:
+    type: string
+  aliases:
+    type: list
+    default: []
+  type:
+    type: enum
+    values:
+      # Cosmic scale
+      - universe
+      - galaxy
+      - star-system
+      - planet
+      - moon
+      # Continental scale
+      - continent
+      - ocean
+      - sea
+      # National scale
+      - country
+      - kingdom
+      - empire
+      - region
+      - province
+      # Local scale
+      - city
+      - town
+      - village
+      - district
+      - neighborhood
+      # Structure scale
+      - building
+      - fortress
+      - temple
+      - dungeon
+      - ruins
+      - room
+      # Natural features
+      - wilderness
+      - forest
+      - mountain
+      - mountain-range
+      - river
+      - lake
+      - desert
+      - island
+      - cave
+      - valley
+      # Special
+      - station       # space station, train station
+      - ship          # sea or space vessel
+      - dimension
+      - pocket-realm
+      - portal-nexus
+      - custom
+  parent:
+    type: ref
+    target: locations
+    description: "Parent in spatial hierarchy (e.g. continent for a country, planet for a continent)"
+  coordinates:
+    type: object
+    description: "Position data for mapping (relative or absolute)"
+    fields:
+      x: { type: number, description: "X position on parent map (0-1000 relative grid)" }
+      y: { type: number, description: "Y position on parent map (0-1000 relative grid)" }
+      lat: { type: number, description: "Latitude (for planet-scale, -90 to 90)" }
+      lon: { type: number, description: "Longitude (for planet-scale, -180 to 180)" }
+  climate:
+    type: string
+  population:
+    type: string
+  faction:
+    type: ref
+    target: factions
+  notable_characters:
+    type: list
+    items:
+      type: ref
+      target: characters
+    default: []
+
+  # ─── TRANSPORT ROUTES ───────────────────────────────────────────────────────
+  # Each location can have multiple routes to other locations.
+  # Routes support multiple concurrent transport systems.
+  routes:
+    type: list
+    description: "Transport connections to other locations"
+    items:
+      to:
+        type: ref
+        target: locations
+        description: "Destination location slug or name"
+      methods:
+        type: list
+        description: "All available transport methods for this route"
+        items:
+          mode:
+            type: enum
+            values:
+              # Foot/animal
+              - walking
+              - horse
+              - caravan
+              - beast-of-burden
+              # Water
+              - rowboat
+              - sailing-ship
+              - steamship
+              - submarine
+              # Rail
+              - train
+              - maglev
+              # Road
+              - cart
+              - coach
+              - car
+              - truck
+              # Air
+              - airship
+              - airplane
+              - dragon
+              - flying-mount
+              - helicopter
+              # Magical
+              - teleportation
+              - portal
+              - ley-line
+              - spirit-walk
+              # Space
+              - shuttle
+              - starship
+              - wormhole
+              - jump-gate
+              - hyperspace
+              # Special
+              - custom
+          travel_time:
+            type: string
+            description: "How long this method takes (e.g. '3 days', '2 hours', 'instant')"
+          distance:
+            type: string
+            description: "Route distance (e.g. '120 miles', '3 AU', '2 light-years')"
+          cost:
+            type: string
+            description: "Travel cost if relevant (e.g. '5 gold', 'free', '100 credits')"
+          danger_level:
+            type: enum
+            values: [safe, low, moderate, high, deadly]
+            default: low
+          requires:
+            type: list
+            description: "Prerequisites (e.g. 'valid passport', 'Guild membership', 'mana')"
+            default: []
+          seasonal:
+            type: boolean
+            description: "True if route is only available in certain seasons"
+            default: false
+          notes:
+            type: string
+      route_type:
+        type: enum
+        values: [major, minor, hidden, seasonal, restricted]
+        default: minor
+        description: "Importance/visibility of the route"
+      bidirectional:
+        type: boolean
+        default: true
+        description: "False for one-way routes (waterfalls, wormholes, etc.)"
+    default: []
+
+  # ─── TRANSPORT INFRASTRUCTURE ───────────────────────────────────────────────
+  transport_hub:
+    type: object
+    description: "If this location is a transport hub (port, station, gate, etc.)"
+    fields:
+      hub_type:
+        type: enum
+        values: [port, harbor, station, airport, spaceport, gate, nexus, waypoint]
+      capacity:
+        type: string
+        description: "How much traffic it handles"
+      services:
+        type: list
+        description: "Available services (refueling, repairs, customs, etc.)"
+
+  resources:
+    type: list
+    default: []
+  dangers:
+    type: list
+    default: []
+  first_appearance:
+    type: string
+  tags:
+    type: list
+    default: []

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorldBuilder</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+</head>
+<body>
+
+<!-- ═══ NAV BAR ═══════════════════════════════════════════════════════════ -->
+<nav id="navbar">
+  <div class="nav-brand" onclick="showWelcome()">
+    <span class="nav-icon">🌍</span> WorldBuilder
+  </div>
+  <div id="nav-project" class="nav-project" style="display:none">
+    <span id="nav-project-name"></span>
+    <span id="nav-project-genre" class="badge"></span>
+  </div>
+  <div class="nav-search" id="nav-search" style="display:none">
+    <input type="text" id="global-search" placeholder="Search entities..." autocomplete="off">
+    <div id="search-results" class="search-dropdown"></div>
+  </div>
+  <div class="nav-actions">
+    <button class="btn btn-ghost" onclick="showPlayground()" title="Image Playground">🎨</button>
+    <button class="btn btn-ghost" onclick="showWelcome()" title="Home">🏠</button>
+  </div>
+</nav>
+
+<!-- ═══ MAIN CONTENT ══════════════════════════════════════════════════════ -->
+<main id="app">
+
+<!-- ─── WELCOME PAGE ──────────────────────────────────────────────────── -->
+<section id="page-welcome" class="page active">
+  <div class="welcome-hero">
+    <h1>🌍 WorldBuilder</h1>
+    <p class="subtitle">Structured worldbuilding for novels, series, campaigns & games</p>
+  </div>
+
+  <div class="welcome-grid">
+    <!-- Getting Started Wizard -->
+    <div class="card card-wizard">
+      <div class="card-header">
+        <h2>🧙 Getting Started</h2>
+        <p>Walk through world creation step by step</p>
+      </div>
+      <div class="wizard-steps-preview">
+        <div class="step-dot" data-step="1">Basics</div>
+        <div class="step-dot" data-step="2">Cosmology</div>
+        <div class="step-dot" data-step="3">Geography</div>
+        <div class="step-dot" data-step="4">Peoples</div>
+        <div class="step-dot" data-step="5">Politics</div>
+        <div class="step-dot" data-step="6">History</div>
+        <div class="step-dot" data-step="7">Characters</div>
+      </div>
+      <button class="btn btn-primary btn-lg" onclick="showWizard()">Start Wizard</button>
+    </div>
+
+    <!-- YOLO Mode -->
+    <div class="card card-yolo">
+      <div class="card-header">
+        <h2>🎲 YOLO Mode</h2>
+        <p>Auto-generate an entire world in one shot</p>
+      </div>
+      <div class="yolo-controls">
+        <div class="form-group">
+          <label>Genre</label>
+          <select id="yolo-genre">
+            <option value="fantasy">Fantasy</option>
+            <option value="scifi">Sci-Fi</option>
+            <option value="modern">Modern</option>
+            <option value="horror">Horror</option>
+            <option value="post-apocalyptic">Post-Apocalyptic</option>
+            <option value="steampunk">Steampunk</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Size</label>
+          <div class="size-picker" id="yolo-size-picker">
+            <button class="size-btn" data-size="S" title="13–45 entities">S</button>
+            <button class="size-btn active" data-size="M" title="30–90 entities">M</button>
+            <button class="size-btn" data-size="L" title="87–253 entities">L</button>
+            <button class="size-btn" data-size="XL" title="173–555 entities">XL</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Creative Seed <span class="hint">(optional)</span></label>
+          <input type="text" id="yolo-seed" placeholder="e.g. dying gods and shattered moons">
+        </div>
+      </div>
+      <button class="btn btn-accent btn-lg" onclick="launchYolo()">🎲 Generate World</button>
+    </div>
+  </div>
+
+  <!-- Existing Projects -->
+  <div class="existing-projects">
+    <h2>📂 Existing Projects</h2>
+    <div id="project-list" class="project-grid"></div>
+  </div>
+</section>
+
+<!-- ─── WIZARD PAGE ───────────────────────────────────────────────────── -->
+<section id="page-wizard" class="page">
+  <div class="wizard-container">
+    <div class="wizard-progress">
+      <div class="progress-bar"><div class="progress-fill" id="wizard-progress-fill"></div></div>
+      <span id="wizard-step-label">Step 1 of 7</span>
+    </div>
+    <div id="wizard-content"></div>
+    <div class="wizard-nav">
+      <button class="btn btn-ghost" id="wizard-back" onclick="wizardBack()">← Back</button>
+      <button class="btn btn-primary" id="wizard-next" onclick="wizardNext()">Next →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ─── PROJECT DASHBOARD ─────────────────────────────────────────────── -->
+<section id="page-dashboard" class="page">
+  <div class="dashboard-header">
+    <h1 id="dash-title"></h1>
+    <div class="dash-meta">
+      <span id="dash-genre" class="badge"></span>
+      <span id="dash-type" class="badge badge-outline"></span>
+      <span id="dash-entity-count" class="badge badge-muted"></span>
+    </div>
+  </div>
+
+  <!-- Entity type navigation -->
+  <div class="entity-nav" id="entity-nav"></div>
+
+  <!-- View toggle -->
+  <div class="view-controls">
+    <div class="view-tabs">
+      <button class="view-tab active" data-view="grid" onclick="setView('grid')">Grid</button>
+      <button class="view-tab" data-view="timeline" onclick="setView('timeline')">Timeline</button>
+      <button class="view-tab" data-view="map" onclick="setView('map')">Geography</button>
+      <button class="view-tab" data-view="relationships" onclick="setView('relationships')">Relationships</button>
+      <button class="view-tab" data-view="families" onclick="setView('families')">Families</button>
+      <button class="view-tab" data-view="languages" onclick="setView('languages')">Languages</button>
+    </div>
+    <div class="filter-bar">
+      <input type="text" id="entity-filter" placeholder="Filter..." oninput="filterEntities()">
+      <select id="entity-sort" onchange="sortEntities()">
+        <option value="name">Name</option>
+        <option value="type">Type</option>
+        <option value="status">Status</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Content areas -->
+  <div id="view-grid" class="view-content active">
+    <div id="entity-grid" class="entity-grid"></div>
+  </div>
+  <div id="view-timeline" class="view-content">
+    <svg id="timeline-svg"></svg>
+  </div>
+  <div id="view-map" class="view-content">
+    <svg id="geography-svg"></svg>
+  </div>
+  <div id="view-relationships" class="view-content">
+    <svg id="relationships-svg"></svg>
+  </div>
+  <div id="view-families" class="view-content">
+    <div id="families-container"></div>
+  </div>
+  <div id="view-languages" class="view-content">
+    <div id="languages-container"></div>
+  </div>
+</section>
+
+<!-- ─── IMAGE PLAYGROUND ──────────────────────────────────────────────── -->
+<section id="page-playground" class="page">
+  <div class="playground-container">
+    <div class="playground-header">
+      <h1>🎨 Image Playground</h1>
+      <p class="subtitle">Test image generation prompts</p>
+      <div id="playground-status" class="playground-status"></div>
+    </div>
+
+    <div class="playground-layout">
+      <!-- Prompt input -->
+      <div class="playground-input">
+        <div class="form-group">
+          <label>Prompt</label>
+          <textarea id="pg-prompt" class="pg-prompt" rows="6"
+            placeholder="Portrait of a battle-scarred dwarf blacksmith in a volcanic forge, dramatic lighting, cinematic, realistic..."></textarea>
+        </div>
+        <div class="pg-style-selector" id="pg-style-selector">
+          <label>Style</label>
+          <div class="pg-style-cards" id="pg-style-cards">
+            <button class="pg-style-card active" data-style="photorealistic" onclick="pgSelectStyle(this)">
+              <span class="pg-style-icon">📷</span>
+              <span class="pg-style-name">Photorealistic</span>
+            </button>
+            <button class="pg-style-card" data-style="anime" onclick="pgSelectStyle(this)">
+              <span class="pg-style-icon">🎌</span>
+              <span class="pg-style-name">Anime</span>
+            </button>
+            <button class="pg-style-card" data-style="cartoon" onclick="pgSelectStyle(this)">
+              <span class="pg-style-icon">🖍️</span>
+              <span class="pg-style-name">Cartoon</span>
+            </button>
+            <button class="pg-style-card" data-style="default" onclick="pgSelectStyle(this)">
+              <span class="pg-style-icon">⚙️</span>
+              <span class="pg-style-name">Default</span>
+            </button>
+          </div>
+        </div>
+        <div class="pg-options">
+          <div class="form-group">
+            <label>Steps</label>
+            <input type="number" id="pg-steps" value="9" min="1" max="20" class="pg-input-sm">
+          </div>
+          <div class="form-group">
+            <label>Width</label>
+            <input type="number" id="pg-width" value="1024" step="64" min="256" max="2048" class="pg-input-sm">
+          </div>
+          <div class="form-group">
+            <label>Height</label>
+            <input type="number" id="pg-height" value="1024" step="64" min="256" max="2048" class="pg-input-sm">
+          </div>
+          <div class="form-group">
+            <label>Seed <span class="hint">(blank = random)</span></label>
+            <input type="number" id="pg-seed" placeholder="random" class="pg-input-sm">
+          </div>
+        </div>
+        <div class="pg-actions">
+          <button class="btn btn-primary btn-lg" id="pg-generate-btn" onclick="pgGenerate()">Generate</button>
+        </div>
+      </div>
+
+      <!-- Image output -->
+      <div class="playground-output">
+        <div id="pg-image-area" class="pg-image-area">
+          <div class="pg-placeholder">
+            <span class="placeholder-icon">🖼️</span>
+            <p>Generated image will appear here</p>
+          </div>
+        </div>
+        <div id="pg-image-info" class="pg-image-info" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="pg-history" id="pg-history" style="display:none">
+      <div class="pg-history-header">
+        <h3>History</h3>
+        <button class="btn btn-ghost btn-sm" onclick="pgClearHistory()">Clear</button>
+      </div>
+      <div id="pg-history-grid" class="pg-history-grid"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── ENTITY DETAIL PANEL ───────────────────────────────────────────── -->
+<div id="entity-panel" class="entity-panel">
+  <div class="panel-header">
+    <button class="btn btn-ghost" onclick="closePanel()">✕</button>
+    <h2 id="panel-name"></h2>
+    <span id="panel-type" class="badge"></span>
+  </div>
+  <div id="panel-content" class="panel-content"></div>
+  <div class="panel-links" id="panel-links"></div>
+</div>
+
+</main>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>

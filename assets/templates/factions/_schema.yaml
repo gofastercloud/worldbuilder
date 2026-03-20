@@ -1,0 +1,173 @@
+# Faction Schema — WorldBuilder
+# A faction is an organized group with shared goals, leadership, and identity.
+# Includes political groups, military organizations, cults, guilds, noble houses, etc.
+
+required:
+  - name
+  - type
+
+fields:
+  name:
+    type: string
+    description: "Faction name"
+  aliases:
+    type: list
+    description: "Other names, titles, nicknames"
+    default: []
+  type:
+    type: enum
+    values: [military, religious, political, criminal, guild, secret-society, noble-house, academic, mercantile, custom]
+    description: "Primary faction type"
+  status:
+    type: enum
+    values: [active, disbanded, underground, dormant]
+    default: active
+    description: "Current operational status"
+  alignment:
+    type: string
+    description: "Moral alignment or ideological orientation"
+  leader:
+    type: ref
+    target: characters
+    description: "Primary leader or figurehead (character reference)"
+  leaders:
+    type: list
+    description: "Multiple leaders or council members"
+    items:
+      type: ref
+      target: characters
+    default: []
+  headquarters:
+    type: ref
+    target: locations
+    description: "Primary base of operations (location reference)"
+  territories:
+    type: list
+    description: "Locations controlled or claimed by this faction"
+    items:
+      type: ref
+      target: locations
+    default: []
+
+  # ─── FACTION IDENTITY ───────────────────────────────────────────────────────
+  goals:
+    type: list
+    description: "Primary objectives and ambitions"
+    default: []
+  ideology:
+    type: string
+    description: "Core beliefs and principles"
+  alignment:
+    type: string
+    description: "Moral/ethical alignment"
+
+  # ─── HERALDRY ───────────────────────────────────────────────────────────────
+  heraldry:
+    type: object
+    description: "Visual identity elements"
+    fields:
+      sigil:
+        type: string
+        description: "Central emblem or symbol"
+      blazon:
+        type: string
+        description: "Heraldic description in formal language"
+      colors:
+        type: list
+        description: "Primary faction colors"
+        default: []
+      motto:
+        type: string
+        description: "Faction motto or tagline"
+      banner_description:
+        type: string
+        description: "Description of standard/banner appearance"
+      image_prompt:
+        type: string
+        description: "Prompt for generating faction artwork"
+
+  # ─── RESOURCES & POWER ──────────────────────────────────────────────────────
+  resources:
+    type: list
+    description: "Money, materials, artifacts, or other assets"
+    default: []
+  military_strength:
+    type: string
+    description: "Size/capability of military forces (if applicable)"
+  influence_level:
+    type: enum
+    values: [local, regional, continental, global, cosmic]
+    default: regional
+    description: "Scope of political/social influence"
+
+  # ─── RELATIONSHIPS ──────────────────────────────────────────────────────────
+  relationships:
+    type: list
+    description: "Relationships with other factions"
+    items:
+      faction:
+        type: ref
+        target: factions
+      relationship_type:
+        type: enum
+        values: [ally, enemy, rival, vassal, patron, neutral, trade-partner, enemy-of-enemy, competing-for-power, unknown]
+      notes:
+        type: string
+    default: []
+
+  # ─── ORGANIZATION ───────────────────────────────────────────────────────────
+  members:
+    type: list
+    description: "Known members (character references)"
+    items:
+      type: ref
+      target: characters
+    default: []
+  member_count:
+    type: string
+    description: "Total membership size or estimate"
+  ranks:
+    type: list
+    description: "Organizational hierarchy/ranks"
+    items:
+      name:
+        type: string
+      description:
+        type: string
+      responsibilities:
+        type: list
+    default: []
+
+  # ─── HISTORY ────────────────────────────────────────────────────────────────
+  founding_date:
+    type: string
+    description: "When faction was founded (WorldDate or historical period)"
+  founding_event:
+    type: string
+    description: "Story of how faction came to be"
+  dissolution_date:
+    type: string
+    description: "When faction disbanded/disbanded (if applicable)"
+
+  # ─── DESCRIPTIONS ───────────────────────────────────────────────────────────
+  descriptions:
+    type: object
+    description: "Multiple description styles"
+    fields:
+      machine:
+        type: string
+        description: "Concise, factual description (for databases/exports)"
+      human:
+        type: string
+        description: "Narrative-style description"
+      image_prompt:
+        type: string
+        description: "Prompt for generating faction artwork"
+
+  # ─── META ───────────────────────────────────────────────────────────────────
+  first_appearance:
+    type: string
+    description: "Chapter/session where faction first appears"
+  tags:
+    type: list
+    default: []

@@ -1,0 +1,1109 @@
+# WorldBuilder — Entity Archetypes
+# Base "classes" that concrete entity types inherit from.
+# Each archetype defines shared fields. Concrete types add their own.
+#
+# Inheritance model:
+#   Entity (base) → Archetype → Concrete Type
+#
+# Example:
+#   Entity → Settlement → City
+#   Entity → Settlement → Village
+#   Entity → Organization → Guild
+#   Entity → Organization → Government
+#   Entity → Person → Character
+#   Entity → Landform → Mountain
+#   Entity → Narrative → Legend
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BASE ENTITY — every entity in the world inherits these fields
+# ═══════════════════════════════════════════════════════════════════════════════
+entity:
+  fields:
+    name:
+      type: string
+      required: true
+    aliases:
+      type: list
+      default: []
+    description:
+      type: string
+      description: "Short prose summary"
+    tags:
+      type: list
+      default: []
+    first_appearance:
+      type: string
+    notes:
+      type: string
+    visual:
+      type: visual_descriptor
+      description: "Structured description for image generation (see visual_descriptors.yaml)"
+    history:
+      type: list
+      description: "Key events in this entity's history (refs to event entities)"
+      items: { type: ref, target: event }
+      default: []
+    created_date:
+      type: worlddate
+      description: "In-world date this entity came into being (birth, founding, forging, etc.)"
+    destroyed_date:
+      type: worlddate
+      description: "In-world date this entity ceased to exist (death, destruction, dissolution, etc.)"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PERSON — any sentient being with agency
+# ═══════════════════════════════════════════════════════════════════════════════
+person:
+  inherits: entity
+  fields:
+    role:
+      type: enum
+      values: [protagonist, antagonist, supporting, minor, mentioned, npc]
+    status:
+      type: enum
+      values: [alive, dead, unknown, transformed, undead, missing, imprisoned]
+    species:
+      type: string
+      default: human
+    age:
+      type: string
+    gender:
+      type: string
+    location:
+      type: ref
+      target: settlement|landform|structure
+    faction:
+      type: ref
+      target: organization
+    relationships:
+      type: list
+      items:
+        target: { type: ref, target: person }
+        type: { type: enum, values: [ally, enemy, family, romantic, mentor, rival, servant, master, friend, unknown] }
+        notes: { type: string }
+    arc:
+      type: ref
+      target: narrative_arc
+    traits:
+      type: list
+      default: []
+    skills:
+      type: list
+      default: []
+    secrets:
+      type: list
+      default: []
+    inventory:
+      type: list
+      default: []
+    stats:
+      type: dict
+      default: {}
+  concrete_types:
+    character:
+      description: "A named character in the story"
+    npc:
+      description: "Non-player character (campaign mode)"
+      extra_fields:
+        cr: { type: number, description: "Challenge rating" }
+        disposition: { type: enum, values: [friendly, neutral, hostile, unknown] }
+    historical_figure:
+      description: "Person from the world's past"
+      extra_fields:
+        era: { type: string }
+        legacy: { type: string }
+    deity:
+      description: "God, goddess, or divine being"
+      extra_fields:
+        domain: { type: list }
+        worship_style: { type: string }
+        power_level: { type: enum, values: [minor, intermediate, greater, supreme] }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SETTLEMENT — any place where people live or gather
+# ═══════════════════════════════════════════════════════════════════════════════
+settlement:
+  inherits: entity
+  fields:
+    parent:
+      type: ref
+      target: settlement|region
+    population:
+      type: string
+    ruler:
+      type: ref
+      target: person
+    faction:
+      type: ref
+      target: organization
+    climate:
+      type: string
+    resources:
+      type: list
+      default: []
+    dangers:
+      type: list
+      default: []
+    notable_characters:
+      type: list
+      items: { type: ref, target: person }
+      default: []
+    connections:
+      type: list
+      items:
+        target: { type: ref, target: settlement|landform }
+        travel_time: { type: string }
+        method: { type: string }
+      default: []
+  concrete_types:
+    city:
+      extra_fields:
+        districts: { type: list, default: [] }
+        walls: { type: boolean, default: false }
+        port: { type: boolean, default: false }
+    town:
+      extra_fields:
+        industry: { type: string }
+    village:
+      extra_fields:
+        industry: { type: string }
+    fortress:
+      extra_fields:
+        garrison: { type: string }
+        defenses: { type: list, default: [] }
+    camp:
+      extra_fields:
+        permanent: { type: boolean, default: false }
+    space_station:
+      extra_fields:
+        orbital_body: { type: string }
+        capacity: { type: string }
+    colony:
+      extra_fields:
+        founding_date: { type: string }
+        terraform_status: { type: string }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STRUCTURE — a specific building, dungeon, or constructed space
+# ═══════════════════════════════════════════════════════════════════════════════
+structure:
+  inherits: entity
+  fields:
+    parent:
+      type: ref
+      target: settlement
+    builder:
+      type: ref
+      target: person|organization
+    purpose:
+      type: string
+    condition:
+      type: enum
+      values: [pristine, good, weathered, damaged, ruined, destroyed]
+  concrete_types:
+    temple:
+      extra_fields:
+        deity: { type: ref, target: person }  # deity archetype
+        religion: { type: ref, target: organization }
+    tavern:
+      extra_fields:
+        owner: { type: ref, target: person }
+        specialty: { type: string }
+    dungeon:
+      extra_fields:
+        levels: { type: number }
+        boss: { type: ref, target: person }
+        loot_table: { type: list, default: [] }
+    castle:
+      extra_fields:
+        lord: { type: ref, target: person }
+    ship:
+      extra_fields:
+        captain: { type: ref, target: person }
+        class: { type: string }
+        armament: { type: list, default: [] }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LANDFORM — natural geographic features
+# ═══════════════════════════════════════════════════════════════════════════════
+landform:
+  inherits: entity
+  fields:
+    parent:
+      type: ref
+      target: region|landform
+    climate:
+      type: string
+    dangers:
+      type: list
+      default: []
+    resources:
+      type: list
+      default: []
+  concrete_types:
+    mountain:
+      extra_fields:
+        height: { type: string }
+        passable: { type: boolean, default: true }
+    forest:
+      extra_fields:
+        density: { type: enum, values: [sparse, moderate, dense, impenetrable] }
+        magical: { type: boolean, default: false }
+    river:
+      extra_fields:
+        source: { type: ref, target: landform }
+        mouth: { type: ref, target: landform|settlement }
+        navigable: { type: boolean, default: true }
+    ocean:
+      extra_fields: {}
+    desert:
+      extra_fields:
+        type: { type: enum, values: [sand, rock, ice, salt] }
+    swamp:
+      extra_fields:
+        depth: { type: string }
+    island:
+      extra_fields:
+        size: { type: string }
+    planet:
+      extra_fields:
+        atmosphere: { type: string }
+        gravity: { type: string }
+        moons: { type: number, default: 0 }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REGION — a political or geographic area containing settlements/landforms
+# ═══════════════════════════════════════════════════════════════════════════════
+region:
+  inherits: entity
+  fields:
+    parent:
+      type: ref
+      target: region
+    ruler:
+      type: ref
+      target: person|organization
+    capital:
+      type: ref
+      target: settlement
+    climate:
+      type: string
+    population:
+      type: string
+  concrete_types:
+    kingdom:
+      extra_fields:
+        government: { type: string }
+        vassals: { type: list, default: [] }
+    empire:
+      extra_fields:
+        government: { type: string }
+        provinces: { type: list, default: [] }
+    province:
+      extra_fields: {}
+    continent:
+      extra_fields: {}
+    star_system:
+      extra_fields:
+        star_type: { type: string }
+        habitable_planets: { type: number }
+    sector:
+      extra_fields:
+        controlling_faction: { type: ref, target: organization }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ORGANIZATION — any group of people with shared purpose
+# ═══════════════════════════════════════════════════════════════════════════════
+organization:
+  inherits: entity
+  fields:
+    leader:
+      type: ref
+      target: person
+    headquarters:
+      type: ref
+      target: settlement|structure
+    members:
+      type: list
+      items: { type: ref, target: person }
+      default: []
+    allies:
+      type: list
+      items: { type: ref, target: organization }
+      default: []
+    enemies:
+      type: list
+      items: { type: ref, target: organization }
+      default: []
+    goals:
+      type: list
+      default: []
+    resources:
+      type: list
+      default: []
+    secrets:
+      type: list
+      default: []
+    status:
+      type: enum
+      values: [active, disbanded, hidden, rising, declining, destroyed]
+  concrete_types:
+    guild:
+      extra_fields:
+        specialty: { type: string }
+        ranks: { type: list, default: [] }
+        dues: { type: string }
+    government:
+      extra_fields:
+        type: { type: enum, values: [monarchy, republic, oligarchy, theocracy, democracy, dictatorship, tribal, council, corporate, hive-mind] }
+        territory: { type: ref, target: region }
+        laws: { type: list, default: [] }
+    religion:
+      extra_fields:
+        deity: { type: ref, target: person }
+        tenets: { type: list, default: [] }
+        rituals: { type: list, default: [] }
+    military:
+      extra_fields:
+        strength: { type: string }
+        specialty: { type: string }
+        equipment: { type: list, default: [] }
+    criminal:
+      extra_fields:
+        territory: { type: string }
+        rackets: { type: list, default: [] }
+    corporation:
+      extra_fields:
+        industry: { type: string }
+        market_cap: { type: string }
+        subsidiaries: { type: list, default: [] }
+    tribe:
+      extra_fields:
+        nomadic: { type: boolean, default: false }
+        territory: { type: ref, target: region|landform }
+    school:
+      extra_fields:
+        discipline: { type: string }
+        students: { type: list, default: [] }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ITEM — objects, artifacts, weapons, tools
+# ═══════════════════════════════════════════════════════════════════════════════
+item:
+  inherits: entity
+  fields:
+    owner:
+      type: ref
+      target: person
+    location:
+      type: ref
+      target: settlement|structure
+    creator:
+      type: ref
+      target: person|organization
+    rarity:
+      type: enum
+      values: [common, uncommon, rare, legendary, unique]
+    significance:
+      type: enum
+      values: [minor, moderate, major, plot-critical]
+    properties:
+      type: list
+      default: []
+  concrete_types:
+    weapon:
+      extra_fields:
+        damage: { type: string }
+        type: { type: string }
+        enchantment: { type: string }
+    armor:
+      extra_fields:
+        protection: { type: string }
+        weight: { type: enum, values: [light, medium, heavy] }
+    artifact:
+      extra_fields:
+        power: { type: string }
+        curse: { type: string }
+        activation: { type: string }
+    potion:
+      extra_fields:
+        effect: { type: string }
+        duration: { type: string }
+    document:
+      extra_fields:
+        contents: { type: string }
+        language: { type: string }
+    technology:
+      extra_fields:
+        tech_level: { type: string }
+        power_source: { type: string }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NARRATIVE — legends, prophecies, songs, and other in-world stories
+# ═══════════════════════════════════════════════════════════════════════════════
+narrative:
+  inherits: entity
+  fields:
+    known_by:
+      type: list
+      items: { type: ref, target: person|organization }
+      default: []
+    truth_level:
+      type: enum
+      values: [true, mostly-true, distorted, false, unknown]
+      description: "How accurate is this story compared to what actually happened?"
+    related_events:
+      type: list
+      items: { type: ref, target: timeline_event }
+      default: []
+  concrete_types:
+    legend:
+      extra_fields:
+        era: { type: string }
+        hero: { type: ref, target: person }
+    prophecy:
+      extra_fields:
+        fulfilled: { type: boolean, default: false }
+        conditions: { type: list, default: [] }
+        interpreter: { type: ref, target: person }
+    song:
+      extra_fields:
+        composer: { type: ref, target: person }
+        performed_by: { type: list, default: [] }
+    myth:
+      extra_fields:
+        origin_culture: { type: ref, target: organization }
+    history:
+      description: "An in-world historical account (may differ from actual timeline)"
+      extra_fields:
+        author: { type: ref, target: person }
+        bias: { type: string }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# POWER SYSTEM — magic, technology, psionics, etc.
+# ═══════════════════════════════════════════════════════════════════════════════
+power_system:
+  inherits: entity
+  fields:
+    source:
+      type: string
+      description: "Where does the power come from?"
+    cost:
+      type: string
+      description: "What does using it cost?"
+    limitations:
+      type: list
+      default: []
+    practitioners:
+      type: list
+      items: { type: ref, target: person }
+      default: []
+    rarity:
+      type: enum
+      values: [common, uncommon, rare, legendary, unique]
+  concrete_types:
+    magic:
+      extra_fields:
+        schools: { type: list, default: [] }
+        forbidden: { type: list, default: [] }
+    technology:
+      extra_fields:
+        tech_level: { type: string }
+        prerequisites: { type: list, default: [] }
+    psionics:
+      extra_fields:
+        disciplines: { type: list, default: [] }
+    divine:
+      extra_fields:
+        deity: { type: ref, target: person }
+        granted_to: { type: list, default: [] }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SPECIES — biological category of being (human, elf, dragon, etc.)
+# ═══════════════════════════════════════════════════════════════════════════════
+# A species is the top-level biological grouping. Sentient species may have
+# multiple races (cultural/ethnic subdivisions). Non-sentient species are
+# fauna, flora, or monsters.
+#
+# INTERBREEDING RULES:
+#   - Cross-species breeding is NOT possible by default.
+#     (No half-human half-lizard madness.)
+#   - Races within the same species CAN interbreed (they're the same species).
+#   - World flags can override: world_flags.peoples.cross_species_breeding = true
+#     enables specific hybrid pairings (e.g. half-elf) defined in the species
+#     relationships section with can_interbreed: true.
+#   - Even when enabled, only explicitly listed species pairs can interbreed.
+# ═══════════════════════════════════════════════════════════════════════════════
+species:
+  inherits: entity
+  fields:
+    sentience:
+      type: enum
+      values: [sapient, semi-sapient, non-sapient, hive-mind, artificial, unknown]
+      description: "Level of intelligence and self-awareness"
+    biology:
+      type: object
+      fields:
+        classification: { type: enum, values: [humanoid, beast, avian, aquatic, insectoid, reptilian, plant, fungal, elemental, undead, construct, aberration, celestial, fiend, fey, dragon, ooze, custom] }
+        size: { type: enum, values: [tiny, small, medium, large, huge, gargantuan, colossal, variable], default: medium }
+        lifespan: { type: string }
+        maturity_age: { type: string }
+        diet: { type: enum, values: [omnivore, herbivore, carnivore, photosynthetic, mana-absorbing, scavenger, parasitic, none, custom] }
+        physical_traits: { type: list, default: [] }
+        senses: { type: list, default: [sight, hearing, smell, touch, taste] }
+    habitat:
+      type: object
+      fields:
+        native_terrain: { type: list, default: [] }
+        climate_preference: { type: list, default: [temperate] }
+        range: { type: string }
+        population_estimate: { type: string }
+        population_trend: { type: enum, values: [growing, stable, declining, endangered, extinct, unknown], default: stable }
+    culture:
+      type: object
+      description: "Only for sapient species"
+      fields:
+        languages: { type: list, items: { type: ref, target: language }, default: [] }
+        native_language: { type: ref, target: language }
+        social_structure: { type: enum, values: [tribal, feudal, democratic, theocratic, meritocratic, hive, nomadic, anarchic, imperial, corporate, council, custom] }
+        technology_level: { type: enum, values: [stone-age, bronze-age, iron-age, medieval, renaissance, industrial, modern, post-modern, space-age, post-singularity, magical-equivalent, custom] }
+        magic_affinity: { type: string }
+    races:
+      type: list
+      description: "Known racial/ethnic subgroups (refs to race entities)"
+      items: { type: ref, target: race }
+      default: []
+    relationships:
+      type: list
+      description: "How this species relates to others"
+      items:
+        species: { type: ref, target: species }
+        disposition: { type: enum, values: [allied, friendly, neutral, wary, hostile, predator-prey, symbiotic, parasitic, unknown] }
+        can_interbreed: { type: boolean, default: false, description: "Only valid if world_flags.peoples.cross_species_breeding = true" }
+        hybrid_name: { type: string, description: "Name for hybrid offspring (e.g. 'half-elf')" }
+      default: []
+  concrete_types:
+    sapient_species:
+      description: "A sentient species capable of language and civilization"
+      extra_fields:
+        subraces: { type: list, default: [] }
+    creature:
+      description: "Non-sentient or semi-sentient creature"
+      extra_fields:
+        cr: { type: number }
+        habitat: { type: string }
+        behavior: { type: enum, values: [passive, territorial, aggressive, predatory, domestic] }
+        domesticable: { type: boolean, default: false }
+    monster:
+      extra_fields:
+        cr: { type: number }
+        weaknesses: { type: list, default: [] }
+        loot: { type: list, default: [] }
+        danger_level: { type: enum, values: [harmless, nuisance, dangerous, deadly, apocalyptic] }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RACE — cultural/ethnic subdivision of a species
+# ═══════════════════════════════════════════════════════════════════════════════
+# Races within the same species can interbreed (they are biologically compatible).
+# Races from different species CANNOT interbreed unless cross_species_breeding is
+# enabled in world flags AND the species pair has can_interbreed: true.
+# ═══════════════════════════════════════════════════════════════════════════════
+race:
+  inherits: entity
+  fields:
+    species:
+      type: ref
+      target: species
+      required: true
+      description: "Parent species this race belongs to"
+    variation:
+      type: object
+      fields:
+        distinguishing_traits: { type: list, default: [] }
+        average_height: { type: string }
+        average_build: { type: string }
+        lifespan_modifier: { type: string }
+        unique_abilities: { type: list, default: [] }
+    culture:
+      type: object
+      fields:
+        homeland: { type: ref, target: settlement|region|landform }
+        current_territories: { type: list, items: { type: ref, target: settlement|region }, default: [] }
+        language: { type: ref, target: language, description: "Primary language (may be dialect of species language)" }
+        additional_languages: { type: list, items: { type: ref, target: language }, default: [] }
+        values: { type: list, default: [] }
+        taboos: { type: list, default: [] }
+        traditions: { type: list, default: [] }
+        naming_conventions:
+          type: object
+          fields:
+            pattern: { type: string }
+            examples: { type: list, default: [] }
+    relationships:
+      type: list
+      items:
+        race: { type: ref, target: race }
+        disposition: { type: enum, values: [allied, friendly, neutral, wary, hostile, rival, vassal, overlord] }
+      default: []
+    faction_affiliations:
+      type: list
+      items: { type: ref, target: organization }
+      default: []
+    population:
+      type: object
+      fields:
+        estimate: { type: string }
+        distribution: { type: string }
+        trend: { type: enum, values: [growing, stable, declining, endangered, extinct, unknown], default: stable }
+    magic_affinity:
+      type: string
+  concrete_types:
+    ethnic_group:
+      description: "A culturally distinct population within a species"
+    clan:
+      description: "A kin-based subgroup (dwarven clans, orc tribes, etc.)"
+      extra_fields:
+        leadership: { type: string }
+        sigil: { type: string }
+    caste:
+      description: "A socially stratified subgroup"
+      extra_fields:
+        rank: { type: number }
+        privileges: { type: list, default: [] }
+        restrictions: { type: list, default: [] }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LANGUAGE — spoken/written/telepathic communication systems
+# ═══════════════════════════════════════════════════════════════════════════════
+# Languages form family trees. Related languages have mutual intelligibility
+# scores (0.0 = alien, 1.0 = identical). Languages have scripts, speaker
+# populations, and geographic ranges.
+# ═══════════════════════════════════════════════════════════════════════════════
+language:
+  inherits: entity
+  fields:
+    status:
+      type: enum
+      values: [living, endangered, dead, extinct, constructed, divine, ancient, proto]
+    family:
+      type: object
+      fields:
+        family_name: { type: string, description: "Top-level family (e.g. 'Elvish', 'Common-tongue', 'Draconic')" }
+        branch: { type: string, description: "Sub-branch within the family" }
+        parent_language: { type: ref, target: language }
+        child_languages: { type: list, items: { type: ref, target: language }, default: [] }
+        proto_language: { type: ref, target: language }
+        divergence_date: { type: worlddate }
+    intelligibility:
+      type: list
+      description: "Mutual intelligibility with other languages (0.0-1.0)"
+      items:
+        language: { type: ref, target: language }
+        score: { type: number, description: "0.0 = alien, 0.5 = gist, 0.7 = conversational, 1.0 = identical" }
+        direction: { type: enum, values: [mutual, one-way-to, one-way-from], default: mutual }
+        notes: { type: string }
+      default: []
+    script:
+      type: object
+      fields:
+        name: { type: string }
+        type: { type: enum, values: [alphabet, syllabary, logographic, abjad, abugida, runic, pictographic, telepathic, magical, none] }
+        direction: { type: enum, values: [ltr, rtl, ttb, boustrophedon, circular, custom], default: ltr }
+        shared_with: { type: list, items: { type: ref, target: language }, default: [] }
+        literacy_rate: { type: string }
+    speakers:
+      type: object
+      fields:
+        native_species: { type: list, items: { type: ref, target: species }, default: [] }
+        native_races: { type: list, items: { type: ref, target: race }, default: [] }
+        as_second_language: { type: list, items: { type: ref, target: species }, default: [] }
+        total_speakers: { type: string }
+        geographic_range: { type: list, items: { type: ref, target: settlement|region }, default: [] }
+    characteristics:
+      type: object
+      fields:
+        phonology: { type: string, description: "What it sounds like" }
+        grammar_notes: { type: string }
+        loanwords_from: { type: list, items: { type: ref, target: language }, default: [] }
+        loanwords_to: { type: list, items: { type: ref, target: language }, default: [] }
+    special:
+      type: object
+      fields:
+        is_lingua_franca: { type: boolean, default: false }
+        is_sacred: { type: boolean, default: false }
+        magical_properties: { type: string }
+        can_be_spoken_by: { type: list, default: [] }
+  concrete_types:
+    spoken_language:
+      description: "A standard spoken/written language"
+    trade_pidgin:
+      description: "A simplified contact language between species"
+      extra_fields:
+        source_languages: { type: list, items: { type: ref, target: language }, default: [] }
+    sign_language:
+      description: "A visual-gestural language"
+    telepathic_language:
+      description: "A mind-to-mind communication system"
+      extra_fields:
+        range: { type: string }
+        requires: { type: string }
+    divine_tongue:
+      description: "Language of gods/cosmic entities"
+      extra_fields:
+        power_when_spoken: { type: string }
+        comprehension: { type: string, description: "Who can understand it?" }
+    dead_language:
+      description: "No living native speakers but may be studied"
+      extra_fields:
+        last_native_speakers: { type: worlddate }
+        preserved_in: { type: list, items: { type: ref, target: item|settlement }, default: [] }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EVENT — the connective tissue of the world's history
+# ═══════════════════════════════════════════════════════════════════════════════
+# Events are first-class entities that link everything together.
+# Every war, birth, death, founding, discovery, coronation, etc. is an event.
+# Events reference the entities involved, and entities reference their events.
+# This creates a bidirectional web of cross-references that the validator
+# can check for temporal consistency.
+#
+# Date handling:
+#   All dates use the project's in-world calendar (defined in project.yaml).
+#   Dates are stored as structured objects with year/month/day fields
+#   so they can be compared, sorted, and validated numerically.
+#   The "display" field holds the human-readable formatted date.
+#
+# Duration events (wars, reigns, plagues) have both start_date and end_date.
+# Instant events (battles, deaths, discoveries) have only date.
+# ═══════════════════════════════════════════════════════════════════════════════
+event:
+  inherits: entity
+  fields:
+    # ── Temporal ──────────────────────────────────────────────────────────────
+    date:
+      type: worlddate
+      description: "When this event occurred (for instant events)"
+    start_date:
+      type: worlddate
+      description: "When this event began (for duration events like wars, reigns)"
+    end_date:
+      type: worlddate
+      description: "When this event ended (for duration events)"
+    era:
+      type: string
+      description: "Which era this event belongs to"
+    duration:
+      type: string
+      description: "Human-readable duration (e.g. '3 years', '2 days', 'instantaneous')"
+
+    # ── Classification ────────────────────────────────────────────────────────
+    significance:
+      type: enum
+      values: [trivial, minor, moderate, major, world-changing]
+      description: "How impactful was this event?"
+    scope:
+      type: enum
+      values: [personal, local, regional, national, continental, global, cosmic]
+      description: "How wide-reaching was this event?"
+    secrecy:
+      type: enum
+      values: [public, rumored, secret, forgotten, mythologized]
+      description: "How widely known is this event?"
+
+    # ── Cross-references (the key feature) ────────────────────────────────────
+    participants:
+      type: list
+      description: "People/creatures involved"
+      items:
+        entity: { type: ref, target: person|species }
+        role: { type: string, description: "What role they played (e.g. 'victor', 'victim', 'witness', 'instigator', 'defender')" }
+      default: []
+    locations:
+      type: list
+      description: "Where this event took place"
+      items: { type: ref, target: settlement|structure|landform|region }
+      default: []
+    organizations:
+      type: list
+      description: "Organizations involved"
+      items:
+        entity: { type: ref, target: organization }
+        role: { type: string }
+      default: []
+    items_involved:
+      type: list
+      description: "Items that played a role"
+      items: { type: ref, target: item }
+      default: []
+
+    # ── Causality chain ───────────────────────────────────────────────────────
+    caused_by:
+      type: list
+      description: "Events that led to this one"
+      items: { type: ref, target: event }
+      default: []
+    leads_to:
+      type: list
+      description: "Events that this one caused or enabled"
+      items: { type: ref, target: event }
+      default: []
+
+    # ── Narrative ─────────────────────────────────────────────────────────────
+    chapter:
+      type: ref
+      target: chapter
+      description: "Which chapter depicts this event (if any)"
+    narrative_order:
+      type: number
+      description: "Order in which the reader learns about this event (for non-linear stories)"
+    known_by:
+      type: list
+      description: "Which characters/factions know about this event"
+      items: { type: ref, target: person|organization }
+      default: []
+    remembered_as:
+      type: string
+      description: "How this event is popularly remembered (may differ from truth)"
+
+  concrete_types:
+    # ── Conflict events ───────────────────────────────────────────────────────
+    war:
+      description: "A sustained military conflict between factions"
+      extra_fields:
+        belligerents:
+          type: list
+          items:
+            faction: { type: ref, target: organization }
+            side: { type: string }          # e.g. "attackers", "defenders", "Alliance", "Coalition"
+          default: []
+        victor: { type: ref, target: organization }
+        casualties: { type: string }
+        battles: { type: list, items: { type: ref, target: event }, default: [] }  # refs to battle events
+        treaty: { type: ref, target: event }  # ref to treaty/peace event
+        casus_belli: { type: string }
+
+    battle:
+      description: "A single military engagement"
+      extra_fields:
+        part_of: { type: ref, target: event }  # which war
+        victor: { type: ref, target: organization|person }
+        forces_a: { type: string }
+        forces_b: { type: string }
+        casualties_a: { type: string }
+        casualties_b: { type: string }
+        tactics: { type: string }
+
+    siege:
+      description: "A prolonged military blockade of a settlement"
+      extra_fields:
+        part_of: { type: ref, target: event }
+        besieged: { type: ref, target: settlement }
+        besieger: { type: ref, target: organization|person }
+        outcome: { type: enum, values: [fell, relieved, negotiated, abandoned] }
+
+    rebellion:
+      description: "An uprising against established authority"
+      extra_fields:
+        against: { type: ref, target: organization|person }
+        rebels: { type: ref, target: organization }
+        outcome: { type: enum, values: [succeeded, crushed, ongoing, stalemate, negotiated] }
+
+    # ── Political events ──────────────────────────────────────────────────────
+    coronation:
+      description: "A ruler ascending to power"
+      extra_fields:
+        ruler: { type: ref, target: person }
+        realm: { type: ref, target: region }
+        predecessor: { type: ref, target: person }
+        method: { type: enum, values: [inheritance, election, conquest, divine-right, usurpation, appointment] }
+
+    treaty:
+      description: "A formal agreement between parties"
+      extra_fields:
+        signatories: { type: list, items: { type: ref, target: organization|person }, default: [] }
+        terms: { type: list, default: [] }
+        broken_by: { type: ref, target: organization|person }
+        broken_date: { type: worlddate }
+
+    founding:
+      description: "The creation/founding of a settlement, organization, or institution"
+      extra_fields:
+        founder: { type: ref, target: person }
+        founded_entity: { type: ref, target: settlement|organization|structure }
+        purpose: { type: string }
+
+    dissolution:
+      description: "The end/destruction of an organization, settlement, or institution"
+      extra_fields:
+        dissolved_entity: { type: ref, target: settlement|organization|structure }
+        reason: { type: string }
+        successor: { type: ref, target: organization|settlement }
+
+    # ── Life events ───────────────────────────────────────────────────────────
+    birth:
+      description: "Birth of a person"
+      extra_fields:
+        person: { type: ref, target: person }
+        parents: { type: list, items: { type: ref, target: person }, default: [] }
+        birthplace: { type: ref, target: settlement|landform }
+        omens: { type: list, default: [] }  # for fantasy — prophecy-related signs
+
+    death:
+      description: "Death of a person"
+      extra_fields:
+        person: { type: ref, target: person }
+        cause: { type: enum, values: [natural, battle, murder, execution, sacrifice, accident, disease, magic, suicide, unknown] }
+        killer: { type: ref, target: person }
+        last_words: { type: string }
+        burial: { type: ref, target: settlement|structure|landform }
+
+    marriage:
+      description: "Union between characters"
+      extra_fields:
+        partners: { type: list, items: { type: ref, target: person }, default: [] }
+        political: { type: boolean, default: false }
+        officiant: { type: ref, target: person }
+
+    # ── Discovery & Knowledge ─────────────────────────────────────────────────
+    discovery:
+      description: "Finding something new — a place, artifact, knowledge, species"
+      extra_fields:
+        discoverer: { type: ref, target: person|organization }
+        discovered: { type: ref, target: landform|settlement|item|species|power_system }
+        method: { type: string }
+
+    invention:
+      description: "Creation of new technology, magic, or technique"
+      extra_fields:
+        inventor: { type: ref, target: person }
+        invention: { type: ref, target: item|power_system }
+        prerequisites: { type: list, items: { type: ref, target: event }, default: [] }
+
+    prophecy_given:
+      description: "A prophecy being spoken or revealed"
+      extra_fields:
+        prophet: { type: ref, target: person }
+        prophecy: { type: ref, target: narrative }
+        fulfilled_by: { type: ref, target: event }
+
+    # ── Catastrophe events ────────────────────────────────────────────────────
+    plague:
+      description: "Disease outbreak"
+      extra_fields:
+        disease: { type: string }
+        mortality_rate: { type: string }
+        regions_affected: { type: list, items: { type: ref, target: region|settlement }, default: [] }
+        cure: { type: string }
+        origin: { type: string }
+
+    natural_disaster:
+      description: "Earthquake, flood, eruption, meteor, etc."
+      extra_fields:
+        disaster_type: { type: enum, values: [earthquake, flood, eruption, tsunami, meteor, wildfire, hurricane, drought, magical-cataclysm, other] }
+        regions_affected: { type: list, items: { type: ref, target: region|settlement }, default: [] }
+        casualties: { type: string }
+        aftermath: { type: string }
+
+    cataclysm:
+      description: "World-altering magical/technological catastrophe"
+      extra_fields:
+        cause: { type: string }
+        perpetrator: { type: ref, target: person|organization }
+        world_before: { type: string }
+        world_after: { type: string }
+        regions_affected: { type: list, items: { type: ref, target: region }, default: [] }
+
+    # ── Trade & Economy ───────────────────────────────────────────────────────
+    trade_agreement:
+      description: "Economic pact between factions"
+      extra_fields:
+        parties: { type: list, items: { type: ref, target: organization }, default: [] }
+        goods: { type: list, default: [] }
+        route: { type: list, items: { type: ref, target: settlement }, default: [] }
+
+    # ── Generic/Custom ────────────────────────────────────────────────────────
+    milestone:
+      description: "A significant but uncategorized event"
+      extra_fields:
+        category: { type: string }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WORLDDATE — the in-world calendar system
+# ═══════════════════════════════════════════════════════════════════════════════
+# Stored as a structured object so dates can be compared numerically.
+# The calendar definition lives in project.yaml.
+#
+# A worlddate looks like:
+#   year: 1247
+#   month: 3          # optional — some events only have a year
+#   day: 15           # optional
+#   era_prefix: "3A"  # optional — e.g. "3A" for "Third Age"
+#   display: "15th of Stormfall, 3A 1247"   # human-readable
+#   approximate: false # is this date exact or approximate?
+#
+# Comparison rules:
+#   - Dates are compared as (era_sort_order, year, month, day)
+#   - Missing month/day treated as 0 (start of period)
+#   - era_sort_order comes from the calendar definition
+# ═══════════════════════════════════════════════════════════════════════════════
+worlddate:
+  fields:
+    year:
+      type: number
+      required: true
+    month:
+      type: number
+      description: "Month number (1-based). Optional for approximate dates."
+    day:
+      type: number
+      description: "Day number (1-based). Optional for approximate dates."
+    era_prefix:
+      type: string
+      description: "Era shorthand, e.g. '3A', 'BE', 'AE', 'GST'. Must match calendar.eras[].prefix"
+    display:
+      type: string
+      description: "Human-readable formatted date"
+    approximate:
+      type: boolean
+      default: false
+      description: "Is this date approximate/uncertain?"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CALENDAR — project-level calendar definition
+# ═══════════════════════════════════════════════════════════════════════════════
+# Goes in project.yaml under the 'calendar' key.
+# Defines eras, months, and date formatting for the world.
+# ═══════════════════════════════════════════════════════════════════════════════
+calendar:
+  fields:
+    name:
+      type: string
+      description: "Calendar name (e.g. 'Reckoning of Ages', 'Galactic Standard Time')"
+    eras:
+      type: list
+      description: "Eras in chronological order"
+      items:
+        name: { type: string }           # "First Age", "Before Empire"
+        prefix: { type: string }          # "1A", "BE"
+        sort_order: { type: number }      # 1, 2, 3... for comparison
+        start_year: { type: number }      # what year this era starts
+        end_year: { type: number }        # what year this era ends (null if current)
+        description: { type: string }
+    months:
+      type: list
+      description: "Months in order (optional — not all worlds need named months)"
+      items:
+        name: { type: string }            # "Stormfall", "Deepwinter"
+        number: { type: number }          # 1-12 (or however many months)
+        days: { type: number }            # days in this month
+    days_per_year:
+      type: number
+      description: "Total days in a year"
+    date_format:
+      type: string
+      description: "How to format dates for display. Use {day}, {month_name}, {month}, {year}, {era}"
+      default: "{day} {month_name}, {era} {year}"
+    week:
+      type: list
+      description: "Days of the week (optional)"
+      items: { type: string }

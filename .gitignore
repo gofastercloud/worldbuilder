@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+
+# Environment / secrets
+.env
+.env.*
+
+# Generated content
+output/
+logs/
+
+# User projects (create your worlds here, but they're yours)
+worlds/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE / tools
+.vscode/
+.idea/
+*.swp
+*.swo
+.claude/

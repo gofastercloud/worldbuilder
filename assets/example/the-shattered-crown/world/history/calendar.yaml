@@ -1,0 +1,31 @@
+# Calendar of the Shattered Crown
+name: "Reckoning of Ages"
+eras:
+  - name: "Age of Dawn"
+    prefix: "1A"
+    sort_order: 1
+    start_year: 1
+    end_year: 500
+    description: "The first age, when the gods still walked"
+  - name: "Age of Crowns"
+    prefix: "2A"
+    sort_order: 2
+    start_year: 1
+    end_year: null
+    description: "The age of mortal kingdoms"
+months:
+  - { name: "Frostmere", number: 1, days: 30 }
+  - { name: "Hearthlight", number: 2, days: 30 }
+  - { name: "Stormfall", number: 3, days: 31 }
+  - { name: "Greenrise", number: 4, days: 30 }
+  - { name: "Sunpeak", number: 5, days: 31 }
+  - { name: "Goldtide", number: 6, days: 30 }
+  - { name: "Harvestmoon", number: 7, days: 31 }
+  - { name: "Ashfall", number: 8, days: 30 }
+  - { name: "Greymist", number: 9, days: 30 }
+  - { name: "Nightveil", number: 10, days: 31 }
+  - { name: "Deepwinter", number: 11, days: 30 }
+  - { name: "Endtide", number: 12, days: 31 }
+days_per_year: 365
+date_format: "{day} {month_name}, {era} {year}"
+week: ["Solarday", "Moonday", "Stoneday", "Windday", "Fireday", "Waterday", "Restday"]

@@ -1,0 +1,52 @@
+# Economy — The Shattered Crown
+
+currencies:
+  - name: "Crown"
+    symbol: "₵"
+    denominations:
+      - { name: "gold crown", value: 100, material: gold }
+      - { name: "silver mark", value: 10, material: silver }
+      - { name: "copper bit", value: 1, material: copper }
+    issuing_authority: "valdris"
+    accepted_in: ["valdris", "the-sunken-library"]
+
+resources:
+  - { name: "Iron", category: raw-material, rarity: common, base_value: "2 silver marks/ingot", unit: "ingots" }
+  - { name: "Timber", category: raw-material, rarity: common, base_value: "5 copper bits/plank", unit: "planks" }
+  - { name: "Grain", category: food, rarity: abundant, base_value: "1 copper bit/bushel", unit: "bushels", perishable: true }
+  - { name: "Weave Fragments", category: magical, rarity: very-rare, base_value: "5 gold crowns each", unit: "fragments" }
+  - { name: "Ancient Texts", category: knowledge, rarity: rare, base_value: "1-10 gold crowns each", unit: "volumes" }
+  - { name: "Stonewarden Steel", category: strategic, rarity: uncommon, base_value: "8 silver marks/ingot", unit: "ingots" }
+  - { name: "Horses", category: strategic, rarity: common, base_value: "3 gold crowns each", unit: "head" }
+
+production:
+  - { resource: "iron", location: "valdris", output: "500 ingots/year", quality: standard, labor_source: "Mining Guild", status: active }
+  - { resource: "timber", location: "valdris", output: "2000 planks/year", quality: standard, labor_source: "Woodcutters Guild", status: active }
+  - { resource: "grain", location: "valdris", output: "50000 bushels/year", quality: standard, labor_source: "Farmsteads", status: active }
+  - { resource: "weave-fragments", location: "the-sunken-library", output: "2-5 fragments/year", quality: exceptional, labor_source: "Scholar expeditions", status: active }
+  - { resource: "ancient-texts", location: "the-sunken-library", output: "10-30 volumes/year", quality: fine, labor_source: "Scholars", status: active }
+
+trade_routes:
+  - name: "Valdris-Library Road"
+    from_location: "valdris"
+    to_location: "the-sunken-library"
+    goods:
+      - { resource: "grain", direction: outbound, volume: "1000 bushels/year" }
+      - { resource: "timber", direction: outbound, volume: "200 planks/year" }
+      - { resource: "ancient-texts", direction: inbound, volume: "5-10 volumes/year" }
+      - { resource: "weave-fragments", direction: inbound, volume: "1-2 fragments/year" }
+    annual_value: "~500 gold crowns"
+    controlled_by: "the-silver-order"
+    status: active
+    risks: [bandits, wolves]
+
+rules:
+  primary_currency: "Crown"
+  barter_common: true
+  banking_exists: false
+  taxation: "The Silver Order collects a tithe from Valdris commerce. Roughly 10% of trade value."
+  slavery_exists: false
+  guild_system: true
+  monopolies: ["The Silver Order controls Weave Gate access"]
+  black_market: true
+  magical_economy: false

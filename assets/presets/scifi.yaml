@@ -1,0 +1,86 @@
+# Sci-Fi Genre Preset — WorldBuilder
+
+genre: scifi
+description: "Space opera, hard sci-fi, cyberpunk, post-apocalyptic"
+
+species_options:
+  - human
+  - android
+  - cyborg
+  - alien
+  - uplifted-animal
+  - digital-consciousness
+  - clone
+  - custom
+
+tech_types:
+  - ftl-drive
+  - energy-weapons
+  - shields
+  - ai-systems
+  - biotech
+  - nanotech
+  - cybernetics
+  - terraforming
+  - cryogenics
+  - quantum-tech
+  - custom
+
+common_factions:
+  - corporation
+  - military
+  - government
+  - rebellion
+  - pirate-fleet
+  - research-institute
+  - colony
+  - alien-empire
+  - ai-collective
+  - megacorp
+
+location_types:
+  - galaxy
+  - star-system
+  - planet
+  - moon
+  - station
+  - ship
+  - city
+  - megacity
+  - colony
+  - orbital-habitat
+  - asteroid-base
+  - cyberspace
+  - dimension
+
+tech_level: spacefaring
+currency_default: "credits"
+
+ftl_options:
+  - hyperspace
+  - wormholes
+  - warp-drive
+  - jump-gates
+  - alcubierre
+  - none           # hard sci-fi, generation ships
+
+themes:
+  - humanity-vs-technology
+  - first-contact
+  - dystopia
+  - utopia-gone-wrong
+  - ai-consciousness
+  - colonialism
+  - survival
+  - identity
+  - corporate-greed
+  - transhumanism
+
+chapter_pov_styles:
+  - single-pov
+  - omniscient
+  - limited-third
+  - first-person
+  - rotating-first
+  - log-entries       # Ship logs, research entries
+  - mixed-media       # News articles, comms, prose

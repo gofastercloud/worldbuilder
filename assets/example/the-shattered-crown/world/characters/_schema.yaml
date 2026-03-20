@@ -1,0 +1,87 @@
+# Character Schema — WorldBuilder
+# All character files must have YAML frontmatter matching this structure.
+# Fields marked (required) must be present; others are optional.
+
+required:
+  - name
+  - role
+  - status
+
+fields:
+  name:
+    type: string
+    description: "Character's full name"
+  aliases:
+    type: list
+    description: "Other names, titles, nicknames"
+    default: []
+  role:
+    type: enum
+    values: [protagonist, antagonist, supporting, minor, mentioned]
+    description: "Narrative role"
+  status:
+    type: enum
+    values: [alive, dead, unknown, transformed, undead, missing]
+    description: "Current status in the story"
+  species:
+    type: string
+    description: "Race/species (use genre presets or custom)"
+    default: "human"
+  age:
+    type: string
+    description: "Age or age range"
+  gender:
+    type: string
+    description: "Gender identity"
+  first_appearance:
+    type: string
+    description: "Chapter/session where character first appears"
+  last_appearance:
+    type: string
+    description: "Chapter/session where character last appears"
+  location:
+    type: ref
+    target: locations
+    description: "Current location (reference to locations/ file)"
+  faction:
+    type: ref
+    target: factions
+    description: "Primary faction allegiance"
+  relationships:
+    type: list
+    items:
+      target:
+        type: ref
+        target: characters
+      type:
+        type: enum
+        values: [ally, enemy, family, romantic, mentor, rival, servant, master, friend, unknown]
+      notes:
+        type: string
+  arc:
+    type: ref
+    target: arcs
+    description: "Character arc reference"
+  traits:
+    type: list
+    description: "Personality traits, quirks"
+    default: []
+  skills:
+    type: list
+    description: "Abilities, talents, training"
+    default: []
+  inventory:
+    type: list
+    description: "Carried items (for game-oriented projects)"
+    default: []
+  stats:
+    type: dict
+    description: "RPG stats (flexible key-value pairs)"
+    default: {}
+  secrets:
+    type: list
+    description: "Things this character knows/hides (spoiler-tagged in output)"
+    default: []
+  tags:
+    type: list
+    default: []

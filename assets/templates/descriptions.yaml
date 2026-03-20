@@ -1,0 +1,180 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# WORLDBUILDER — TRIPLE DESCRIPTION SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+# Every entity gets THREE descriptions, each tuned for a different consumer:
+#
+#   1. human_description
+#      → For readers. Evocative prose styled by prose_style settings.
+#      → "Kael stood on the battlements, the scar on his jaw a pale reminder..."
+#
+#   2. machine_description
+#      → For Claude during prose generation. Structured, factual, deterministic.
+#      → Ensures consistency across chapters. No purple prose, just facts.
+#      → "Kael Dawnblade: 22yo male human (Valdrian). 6'1", lean/athletic.
+#         Dark hair, short military cut. Golden-brown eyes (Dawnblade trait).
+#         Scar: left temple to jawline. Wears: battered Silver Order surcoat
+#         (deep blue, winged sword emblem) over brown leather armor..."
+#
+#   3. image_prompt
+#      → For text-to-image models. Optimized for the visual_style preset.
+#      → Includes style tags, composition, negative prompts.
+#      → "Realistic portrait, young male warrior, short dark hair, golden-brown
+#         eyes, facial scar left temple to jaw, deep blue surcoat with silver
+#         winged sword emblem, leather armor underneath, castle battlements
+#         background, soldiers in courtyard below, dramatic sunset lighting,
+#         muted earth-tone palette, medium shot, highly detailed --no cartoon,
+#         anime, watermark"
+#
+# The machine_description is the SOURCE OF TRUTH. The human and image
+# descriptions are DERIVED from it + style settings. This means you write
+# the facts once, and the system adapts them to context.
+#
+# These fields go in each entity's YAML frontmatter under 'descriptions:'.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ─── PER-ENTITY DESCRIPTION BLOCK ────────────────────────────────────────────
+# Add this block to any entity's frontmatter:
+#
+# descriptions:
+#   machine:
+#     physical: "6'1\", lean athletic build, dark hair short military cut..."
+#     clothing: "Battered Silver Order surcoat (deep blue, winged sword emblem)..."
+#     demeanor: "Alert, tense, hand resting on sword hilt..."
+#     distinguishing: "Scar left temple to jawline, golden-brown eyes..."
+#     environment: "Castle battlements, soldiers drilling below..."
+#   human: |
+#     Kael stood on the wall-walk, the wind catching the frayed hem of his
+#     surcoat. The Silver Order's winged blade, once bright silver thread,
+#     had faded to gray...
+#   image_prompt: |
+#     Realistic portrait of young male warrior with short dark hair and
+#     golden-brown eyes, facial scar from left temple to jawline...
+
+# ─── MACHINE DESCRIPTION SCHEMAS BY ENTITY TYPE ──────────────────────────────
+
+character_machine:
+  fields:
+    physical:
+      description: "Height, build, coloring, age appearance, species features"
+      example: "6'1\", lean athletic build, dark brown hair in short military cut, golden-brown eyes (Dawnblade bloodline), fair skin weathered by sun"
+    face:
+      description: "Facial features, expression, distinguishing marks"
+      example: "Strong jaw (Dawnblade trait), scar from left temple to jawline (thin, white, recent), habitually set expression, furrowed brow"
+    clothing:
+      description: "Default outfit, armor, accessories. Include colors, materials, condition, emblems"
+      example: "Battered Silver Order surcoat (deep blue linen, winged sword emblem in faded silver thread, torn at hem), brown leather armor underneath, worn sword belt, Silver Order insignia at collar"
+    equipment:
+      description: "Weapons, tools, carried items"
+      example: "Inherited longsword (plain steel, leather-wrapped grip, Dawnblade family mark on pommel), belt knife, water skin"
+    demeanor:
+      description: "Default body language, stance, energy"
+      example: "Alert, tense, shoulders slightly forward, hand resting on sword hilt, always scans exits. Moves with trained economy."
+    voice:
+      description: "How they sound — drives TTS voice design and audiobook narration"
+      example: "Mid-range baritone, clipped sentences, military cadence. Valdrian accent (sounds roughly like Northern English). Speaks in short, declarative bursts."
+    distinguishing:
+      description: "The 2-3 things that make this character instantly recognizable"
+      example: "Scar from temple to jaw, golden-brown Dawnblade eyes, battered Silver Order surcoat"
+
+location_machine:
+  fields:
+    overview:
+      description: "What you see from a distance / on approach"
+      example: "Walled city on a river plateau, three concentric rings of white stone walls, visible for 20 miles"
+    architecture:
+      description: "Building style, materials, condition"
+      example: "White limestone walls, slate roofs, heavy buttresses. Military architecture — functional over decorative. Crown Ring buildings are older, more ornate."
+    atmosphere:
+      description: "Sounds, smells, ambient feel"
+      example: "Clang of smiths, market shouting, horses on cobblestone. Smells of woodsmoke, horse dung, bread. Crowded but orderly."
+    landmarks:
+      description: "2-3 instantly recognizable features"
+      example: "The Shattered Throne (visible crack in the palace dome), the Silver Bastion (fortress within a fortress), the Weave Gate spire"
+    time_of_day:
+      description: "How it changes throughout the day"
+      example: "Dawn: quiet except drilling soldiers. Midday: market noise peaks. Dusk: taverns fill. Night: Silver Order patrols, lamplighters."
+    weather:
+      description: "Typical weather patterns"
+      example: "Temperate. Frequent rain in autumn. Cold dry winters. Warm summers with river fog."
+
+item_machine:
+  fields:
+    appearance:
+      description: "What it looks like — shape, size, color, material"
+      example: "Gold circlet set with seven gemstones (each a different color), cracked through the center. Weighs about 2 pounds. Roughly 8 inches diameter."
+    condition:
+      description: "State of repair, age markers"
+      example: "Ancient. The crack runs through two gemstones. Tarnished but not corroded. Eldari glyphs still faintly luminous."
+    distinguishing:
+      description: "What makes it recognizable"
+      example: "The crack, the seven colored stones, the faint glow of Eldari glyphs"
+
+faction_machine:
+  fields:
+    visual_identity:
+      description: "Colors, symbols, uniforms, banners"
+      example: "Deep blue and silver. Winged sword emblem. Members wear blue surcoats with silver thread emblem. Banner: winged sword on blue field."
+    architecture:
+      description: "What their buildings/spaces look like"
+      example: "Military austere. Clean lines, functional, stone and iron. The Silver Bastion is a fortress within Valdris."
+    atmosphere:
+      description: "What it feels like to be around them"
+      example: "Disciplined, martial, honor-bound. Formal address. Rank visible on collar insignia."
+
+
+# ─── HERALDRY / SIGIL SYSTEM ─────────────────────────────────────────────────
+# Any entity that has a visual identity (faction, lineage, location, race,
+# kingdom) should have a heraldry block. This feeds into image generation.
+#
+# heraldry:
+#   sigil:
+#     description: "Plain language description of the symbol"
+#     blazon: "Formal heraldic blazon (optional, for realism nerds)"
+#     shape: "shield, circle, diamond, banner, seal, custom"
+#   colors:
+#     primary: "deep blue"
+#     secondary: "silver"
+#     accent: "gold"
+#   motto: "First to face the dawn"
+#   words: "We endure"
+#   banner_description: "A deep blue banner bearing a winged silver sword, gold fringe"
+#   image_prompt: >
+#     Heraldic shield, deep blue field, silver winged sword emblem centered,
+#     gold border, medieval style, clean vector design, high detail
+#     --no photo, realistic, face
+
+heraldry_schema:
+  fields:
+    sigil:
+      description:
+        type: string
+        description: "Plain English description of the symbol"
+      blazon:
+        type: string
+        description: "Formal heraldic blazon (e.g. 'Azure, a sword argent winged or')"
+      shape:
+        type: enum
+        values: [shield, circle, diamond, banner, pennant, seal, roundel, lozenge, custom]
+        default: shield
+    colors:
+      primary: { type: string }
+      secondary: { type: string }
+      accent: { type: string }
+    motto:
+      type: string
+    words:
+      type: string
+      description: "House words / battle cry"
+    banner_description:
+      type: string
+      description: "Full description of the banner/flag as it would appear in a scene"
+    image_prompt:
+      type: string
+      description: "Pre-built prompt for generating the sigil/crest as an image"
+
+# ─── ENTITIES THAT SHOULD HAVE HERALDRY ──────────────────────────────────────
+# lineage    → House/dynasty crest (already has it)
+# faction    → Organization emblem, uniform colors
+# location   → City/kingdom flag or seal
+# race       → Cultural symbols, tribal markings
+# species    → Racial identifiers (if visual differences are important)

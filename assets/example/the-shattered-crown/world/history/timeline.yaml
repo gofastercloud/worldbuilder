@@ -1,0 +1,27 @@
+# Timeline — WorldBuilder
+# Master chronological record of all events in the world.
+# Dates use in-world calendar (define format in project.yaml).
+
+calendar:
+  name: ""                    # e.g. "Age of Reckoning", "Galactic Standard"
+  epoch: ""                   # What year 0/1 represents
+  format: "Year Month Day"   # How dates are written
+
+eras:
+  - name: ""
+    start: ""
+    end: ""
+    description: ""
+
+events:
+  - id: "evt-001"
+    date: ""                  # in-world date
+    real_order: 1             # narrative presentation order (for non-linear stories)
+    title: ""
+    description: ""
+    characters: []            # refs to character files
+    location: ""              # ref to location file
+    chapter: ""               # ref to chapter file
+    significance: minor       # minor | moderate | major | climactic
+    consequences: []          # refs to other event ids
+    tags: []

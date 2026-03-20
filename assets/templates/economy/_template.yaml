@@ -1,0 +1,68 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# ECONOMY CONFIGURATION — per-project
+# ═══════════════════════════════════════════════════════════════════════════════
+# Place in your project's world/ directory as economy.yaml.
+# Defines resources, currencies, trade routes, and economic rules.
+
+# ─── CURRENCIES ───────────────────────────────────────────────────────────────
+currencies:
+  # - name: "Crown"
+  #   symbol: "₵"
+  #   denominations:
+  #     - name: "gold crown"
+  #       value: 100
+  #       material: gold
+  #     - name: "silver mark"
+  #       value: 10
+  #       material: silver
+  #     - name: "copper bit"
+  #       value: 1
+  #       material: copper
+  #   issuing_authority: ""
+  #   accepted_in: []
+
+# ─── RESOURCES ────────────────────────────────────────────────────────────────
+resources:
+  # - name: "Iron"
+  #   category: raw-material
+  #   rarity: common
+  #   base_value: "2 silver marks per ingot"
+  #   unit: "ingots"
+  #   perishable: false
+
+# ─── PRODUCTION ───────────────────────────────────────────────────────────────
+production:
+  # - resource: "iron"
+  #   location: "valdris"
+  #   output: "200 ingots/year"
+  #   quality: standard
+  #   labor_source: "Mining Guild"
+  #   status: active
+
+# ─── TRADE ROUTES ─────────────────────────────────────────────────────────────
+trade_routes:
+  # - name: "Valdris-Library Road"
+  #   from_location: "valdris"
+  #   to_location: "the-sunken-library"
+  #   goods:
+  #     - resource: "grain"
+  #       direction: outbound
+  #       volume: "500 bushels/year"
+  #     - resource: "ancient-texts"
+  #       direction: inbound
+  #       volume: "occasional"
+  #   annual_value: "~2000 crowns"
+  #   controlled_by: ""
+  #   status: active
+
+# ─── ECONOMIC RULES ──────────────────────────────────────────────────────────
+rules:
+  primary_currency: ""
+  barter_common: true          # is bartering normal in this world?
+  banking_exists: false        # organized banking/lending?
+  taxation: ""                 # how taxation works
+  slavery_exists: false        # is slavery part of the economy?
+  guild_system: false          # do guilds control production?
+  monopolies: []               # any monopolized resources?
+  black_market: false          # organized illegal trade?
+  magical_economy: false       # can magic be bought/sold? mana as currency?

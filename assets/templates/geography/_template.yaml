@@ -1,0 +1,68 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# TERRAIN BLOCK TEMPLATE
+# ═══════════════════════════════════════════════════════════════════════════════
+# The world map is divided into blocks (hex or grid). Each block has a terrain
+# type, elevation, features, and movement modifiers. This gives us a GIS-style
+# consistent geography that editors and validators can check against.
+#
+# Blocks are referenced by grid coordinates: e.g. "A3", "F12"
+# A region/continent is composed of many blocks.
+# Routes between locations traverse specific blocks, allowing distance and
+# travel-time validation.
+
+block_id: "{{BLOCK_ID}}"
+region: ""                    # which region/continent this block belongs to
+coordinates: { col: 0, row: 0 }
+
+# ─── TERRAIN ──────────────────────────────────────────────────────────────────
+terrain:
+  primary: plains             # plains, forest, dense-forest, jungle, desert,
+                              # mountain, hills, swamp, marsh, tundra, volcanic,
+                              # glacier, ocean, sea, lake, river-delta, coastline,
+                              # badlands, steppe, savanna, farmland, wasteland
+  secondary: ""               # mixed terrain (e.g. forest-hills)
+  elevation: 200              # meters above sea level (negative for ocean)
+  elevation_class: lowland    # deep-ocean, ocean, coastal, lowland, upland,
+                              # highland, mountain, peak
+
+# ─── CLIMATE ──────────────────────────────────────────────────────────────────
+climate:
+  zone: temperate             # arctic, subarctic, temperate, subtropical, tropical, arid
+  rainfall: moderate          # none, scarce, light, moderate, heavy, monsoon
+  temperature: mild           # freezing, cold, cool, mild, warm, hot, scorching
+  seasons: [spring, summer, autumn, winter]
+
+# ─── MOVEMENT ─────────────────────────────────────────────────────────────────
+# Movement cost multiplier (1.0 = normal, 2.0 = half speed, etc.)
+movement:
+  on_foot: 1.0
+  mounted: 1.0
+  cart: 1.0
+  army: 1.0
+  impassable: false           # true = cannot traverse at all (e.g. ocean without ship)
+  requires_transport: ""      # "ship", "flying-mount", etc. if special transport needed
+
+# ─── FEATURES ─────────────────────────────────────────────────────────────────
+features:
+  rivers: []                  # rivers crossing this block
+  roads: []                   # roads/paths crossing this block (ref to route slugs)
+  settlements: []             # location slugs of settlements in this block
+  landmarks: []               # notable geographic features
+  resources: []               # mineable/harvestable resources
+
+# ─── DANGERS ──────────────────────────────────────────────────────────────────
+dangers:
+  level: low                  # safe, low, moderate, high, deadly
+  threats: []                 # bandits, wildlife, environmental hazards
+  seasonal_threats: []        # threats that change by season
+
+# ─── GEOLOGICAL ───────────────────────────────────────────────────────────────
+geology:
+  rock_type: ""               # sedimentary, ignite, metamorphic
+  soil: ""                    # fertile, sandy, rocky, clay, volcanic
+  water_table: ""             # shallow, moderate, deep, surface
+  seismic_activity: none      # none, low, moderate, high (for earthquakes/volcanoes)
+  volcanic: false
+
+notes: ""
+tags: []

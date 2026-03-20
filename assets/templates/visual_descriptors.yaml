@@ -1,0 +1,154 @@
+# WorldBuilder — Visual Descriptor System
+# Structured descriptions optimized for AI image generation (Nano Banana 2, DALL-E, Midjourney, etc.)
+#
+# Every entity can have a `visual` block in its frontmatter.
+# The CLI tool can compile these into image generation prompts.
+#
+# Design principles:
+#   1. Structured tags for consistency across images
+#   2. Prose description for nuance
+#   3. Style directives for artistic consistency within a project
+#   4. Reference images for maintaining character/location identity
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PROJECT-LEVEL VISUAL STYLE (goes in project.yaml)
+# ═══════════════════════════════════════════════════════════════════════════════
+project_visual_style:
+  art_style: ""              # e.g. "oil painting", "digital concept art", "watercolor", "anime", "photorealistic"
+  color_palette: []          # dominant colors e.g. ["deep blue", "gold", "forest green"]
+  mood: ""                   # "dark and gritty", "bright and whimsical", "epic and sweeping"
+  era_aesthetic: ""           # "medieval european", "feudal japanese", "retro-futuristic", "victorian"
+  lighting: ""               # "dramatic chiaroscuro", "soft diffused", "golden hour", "neon-lit"
+  influences: []             # artistic references e.g. ["Frank Frazetta", "Studio Ghibli", "Syd Mead"]
+  negative_prompts: []       # things to avoid e.g. ["modern clothing", "cars", "phones"]
+  aspect_ratio: "16:9"       # default aspect ratio for generated images
+  resolution: "1024x1024"    # default resolution
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PERSON VISUAL DESCRIPTOR
+# ═══════════════════════════════════════════════════════════════════════════════
+person_visual:
+  # Physical
+  build:
+    type: enum
+    values: [slim, lean, athletic, muscular, stocky, heavy, ethereal, massive, wiry, average]
+  height:
+    type: enum
+    values: [very short, short, average, tall, very tall, towering]
+  skin_tone:
+    type: string             # "pale", "olive", "dark brown", "ashen grey", "blue-tinged"
+  hair:
+    color: ""                # "raven black", "silver", "copper red"
+    style: ""                # "long braided", "close-cropped", "wild and unkempt", "shaved"
+    length: ""               # "shoulder-length", "waist-length", "buzzed"
+    texture: ""              # "straight", "wavy", "curly", "coily"
+  eyes:
+    color: ""                # "emerald green", "storm grey", "heterochromatic blue/brown"
+    shape: ""                # "almond", "round", "narrow", "wide"
+    notable: ""              # "glowing", "scarred over left eye", "cybernetic right eye"
+  face:
+    shape: ""                # "angular", "round", "square-jawed", "heart-shaped"
+    notable: ""              # "jagged scar across cheek", "tribal tattoos", "pointed ears"
+  distinguishing_marks: []   # scars, tattoos, birthmarks, mutations, cybernetics
+  age_appearance: ""         # "weathered 50s", "youthful 20s", "ageless", "ancient"
+
+  # Attire
+  typical_outfit:
+    type: string
+    description: "Default clothing description"
+    # e.g. "worn leather armor over a dark green tunic, high boots, hooded cloak"
+  formal_outfit:
+    type: string
+  combat_outfit:
+    type: string
+  accessories: []            # "silver ring on left hand", "bone necklace", "mechanical arm"
+  weapon_carried: ""         # "longsword at hip", "staff with crystal", "twin blasters"
+  color_scheme: []           # character's signature colors
+
+  # Pose & Expression
+  default_pose: ""           # "arms crossed, leaning against wall", "seated on throne"
+  default_expression: ""     # "stern determination", "wry half-smile", "haunted stare"
+  body_language: ""          # "confident and commanding", "nervous and fidgeting"
+
+  # Prompt assembly
+  prompt_template: "{art_style} portrait of {name}, {build} {height} {species}, {skin_tone} skin, {hair.color} {hair.style} hair, {eyes.color} eyes, {face.notable}, wearing {typical_outfit}, {default_expression}, {mood}, {lighting}"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LOCATION VISUAL DESCRIPTOR
+# ═══════════════════════════════════════════════════════════════════════════════
+location_visual:
+  # Environment
+  time_of_day: ""            # "dawn", "midday", "dusk", "night", "twilight"
+  weather: ""                # "clear", "stormy", "foggy", "snowing", "raining"
+  season: ""                 # "deep winter", "spring bloom", "autumn harvest"
+  lighting: ""               # overrides project default for this location
+
+  # Architecture (for settlements/structures)
+  architecture_style: ""     # "gothic spires", "wooden longhouses", "brutalist concrete"
+  materials: []              # "dark stone", "living wood", "rusted metal", "crystal"
+  condition: ""              # "pristine", "weathered", "crumbling", "overgrown"
+  scale: ""                  # "intimate", "sprawling", "monumental", "claustrophobic"
+
+  # Natural features (for landforms)
+  terrain: ""                # "rocky cliffs", "rolling hills", "dense canopy"
+  vegetation: ""             # "sparse scrub", "lush tropical", "ancient redwoods"
+  water: ""                  # "rushing river", "still lake", "ocean horizon"
+  sky: ""                    # "aurora borealis", "twin moons", "smog-choked"
+
+  # Atmosphere
+  mood: ""                   # "foreboding", "serene", "bustling", "abandoned"
+  sounds: ""                 # "distant church bells", "howling wind" (for AI narration context)
+  smells: ""                 # "woodsmoke", "sea salt" (for prose enrichment)
+
+  # Composition
+  viewpoint: ""              # "aerial view", "ground level", "approaching from road"
+  focal_point: ""            # "the central tower", "the market square", "the cave entrance"
+  foreground: ""             # "wildflowers", "cobblestone path", "character silhouette"
+  background: ""             # "mountain range", "city skyline", "starfield"
+
+  # Prompt assembly
+  prompt_template: "{art_style} {viewpoint} of {name}, {architecture_style} {type}, {materials}, {condition}, {weather} {time_of_day}, {mood} atmosphere, {lighting}, {foreground} in foreground, {background} in background"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAP VISUAL DESCRIPTOR
+# ═══════════════════════════════════════════════════════════════════════════════
+map_visual:
+  style: ""                  # "hand-drawn parchment", "satellite view", "political borders", "topographic"
+  scope: ""                  # "world", "continent", "region", "city", "building floor plan"
+  compass: true
+  legend: true
+  labels: []                 # which entities to label on the map
+  terrain_features: []       # mountains, rivers, forests to show
+  borders: []                # political boundaries to show
+  routes: []                 # trade routes, character journeys
+  points_of_interest: []     # marked locations
+  sea_monsters: false        # classic fantasy map decoration
+
+  prompt_template: "{art_style} {style} fantasy map of {name}, {scope} scale, showing {terrain_features}, with {labels}, {mood}"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ITEM VISUAL DESCRIPTOR
+# ═══════════════════════════════════════════════════════════════════════════════
+item_visual:
+  material: ""               # "Damascus steel", "enchanted crystal", "alien alloy"
+  color: ""
+  size: ""                   # "palm-sized", "two-handed", "massive"
+  glow: ""                   # "faint blue", "pulsing red", "none"
+  inscriptions: ""           # "elven runes along the blade", "serial number etched"
+  wear: ""                   # "pristine", "battle-worn", "ancient and corroded"
+  display: ""                # "held in hand", "mounted on wall", "floating"
+
+  prompt_template: "{art_style} detailed illustration of {name}, {material}, {color}, {size}, {wear}, {glow} glow, {inscriptions}, {display}"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SCENE VISUAL DESCRIPTOR (for chapter illustrations / key moments)
+# ═══════════════════════════════════════════════════════════════════════════════
+scene_visual:
+  characters: []             # refs to characters in scene (pulls their visual descriptors)
+  location: ""               # ref to location (pulls its visual descriptor)
+  action: ""                 # "sword clash", "tense negotiation", "fleeing through forest"
+  emotion: ""                # "desperate", "triumphant", "mysterious"
+  composition: ""            # "dynamic diagonal", "centered symmetrical", "rule of thirds"
+  camera_angle: ""           # "low angle hero shot", "overhead battle view", "intimate close-up"
+
+  prompt_template: "{art_style} {camera_angle} scene: {action}, {characters} at {location}, {emotion} mood, {composition} composition, {lighting}"

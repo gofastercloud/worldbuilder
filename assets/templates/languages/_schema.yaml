@@ -1,0 +1,213 @@
+# Language Schema — WorldBuilder
+# Models a language with its family tree, script system, mutual intelligibility
+# with related languages, and geographic/demographic spread.
+#
+# Key concepts:
+#   - Language Family: A tree of related languages sharing a common ancestor
+#     (e.g. Indo-European → Germanic → English/German/Dutch)
+#   - Proto-Language: The reconstructed ancestor of a family (e.g. Proto-Elvish)
+#   - Mutual Intelligibility: Can speakers of language A understand language B?
+#     Scored 0.0 (completely unintelligible) to 1.0 (identical)
+#   - Script: The writing system used (languages can share scripts)
+#   - Register: Formal vs informal vs archaic variants
+#   - Lingua Franca: A common trade/diplomatic language between species
+
+required:
+  - name
+  - status
+
+fields:
+  name:
+    type: string
+  aliases:
+    type: list
+    description: "Other names (endonym, exonym, historical names)"
+    default: []
+  status:
+    type: enum
+    values:
+      - living           # Actively spoken by a community
+      - endangered       # Few remaining speakers
+      - dead             # No native speakers, but understood (like Latin)
+      - extinct          # No speakers, no comprehension
+      - constructed      # Deliberately created (trade pidgins, magical tongues)
+      - divine           # Language of gods/cosmic entities
+      - ancient          # Predates recorded history, partially reconstructed
+      - proto            # Reconstructed ancestor language (never directly spoken)
+
+  # ─── FAMILY TREE ────────────────────────────────────────────────────────────
+  family:
+    type: object
+    description: "Position in the language family tree"
+    fields:
+      family_name:
+        type: string
+        description: "Top-level language family (e.g. 'Elvish', 'Common-tongue', 'Draconic')"
+      branch:
+        type: string
+        description: "Sub-branch within the family (e.g. 'Western Elvish', 'Old Common')"
+      parent_language:
+        type: ref
+        target: language
+        description: "The language this evolved from (e.g. Old Elvish → High Elvish)"
+      child_languages:
+        type: list
+        items: { type: ref, target: language }
+        description: "Languages that descended from this one"
+        default: []
+      proto_language:
+        type: ref
+        target: language
+        description: "The reconstructed root ancestor of this family"
+      divergence_date:
+        type: worlddate
+        description: "When this language split from its parent"
+
+  # ─── MUTUAL INTELLIGIBILITY ─────────────────────────────────────────────────
+  # This is the core system for determining who can talk to whom.
+  # Scores: 0.0 = completely alien, 0.3 = catch occasional words,
+  #         0.5 = get the gist, 0.7 = conversational with effort,
+  #         0.85 = easily understood, 1.0 = same language/dialect
+  intelligibility:
+    type: list
+    description: "How well speakers of this language understand other languages"
+    items:
+      language:
+        type: ref
+        target: language
+      score:
+        type: number
+        description: "0.0 to 1.0 — mutual intelligibility score"
+      direction:
+        type: enum
+        values: [mutual, one-way-to, one-way-from]
+        description: "mutual = both ways equal, one-way-to = this lang understands target better, one-way-from = target understands this better"
+        default: mutual
+      notes:
+        type: string
+        description: "Context (e.g. 'only when spoken slowly', 'written more intelligible than spoken')"
+    default: []
+
+  # ─── SCRIPT / WRITING ──────────────────────────────────────────────────────
+  script:
+    type: object
+    fields:
+      name:
+        type: string
+        description: "Name of the writing system (e.g. 'Elvish Tengwar', 'Common Alphabet', 'Runic')"
+      type:
+        type: enum
+        values:
+          - alphabet       # One symbol per sound (Latin, Cyrillic)
+          - syllabary      # One symbol per syllable (Japanese kana)
+          - logographic    # One symbol per word/concept (Chinese characters)
+          - abjad          # Consonants only, vowels implied (Arabic, Hebrew)
+          - abugida        # Consonant-vowel units (Devanagari)
+          - runic          # Carved symbols, often magical
+          - pictographic   # Picture-based (early writing, some alien)
+          - telepathic     # No written form — transmitted mind-to-mind
+          - magical        # Written in mana patterns, wards, glyphs
+          - none           # Oral tradition only, no writing system
+      direction:
+        type: enum
+        values: [ltr, rtl, ttb, boustrophedon, circular, custom]
+        default: ltr
+        description: "Reading direction"
+      shared_with:
+        type: list
+        items: { type: ref, target: language }
+        description: "Other languages that use the same script"
+        default: []
+      literacy_rate:
+        type: string
+        description: "How common literacy is among speakers"
+
+  # ─── SPEAKERS ───────────────────────────────────────────────────────────────
+  speakers:
+    type: object
+    fields:
+      native_species:
+        type: list
+        items: { type: ref, target: species }
+        description: "Species that speak this as a native language"
+        default: []
+      native_races:
+        type: list
+        items: { type: ref, target: race }
+        description: "Specific races/cultures where this is the primary language"
+        default: []
+      as_second_language:
+        type: list
+        items: { type: ref, target: species }
+        description: "Species that commonly learn this as a second language"
+        default: []
+      total_speakers:
+        type: string
+        description: "Estimated number of speakers"
+      geographic_range:
+        type: list
+        items: { type: ref, target: location }
+        description: "Where this language is spoken"
+        default: []
+
+  # ─── CHARACTERISTICS ────────────────────────────────────────────────────────
+  characteristics:
+    type: object
+    fields:
+      phonology:
+        type: string
+        description: "What it sounds like (e.g. 'flowing vowels', 'harsh gutturals', 'clicks and whistles')"
+      grammar_notes:
+        type: string
+        description: "Notable grammar features (e.g. 'verb-final', 'no articles', 'tonal')"
+      registers:
+        type: list
+        description: "Formal/informal variants"
+        items:
+          name: { type: string }
+          used_by: { type: string }
+          notes: { type: string }
+        default: []
+      loanwords_from:
+        type: list
+        items: { type: ref, target: language }
+        description: "Languages that contributed loanwords"
+        default: []
+      loanwords_to:
+        type: list
+        items: { type: ref, target: language }
+        description: "Languages this one has influenced"
+        default: []
+
+  # ─── SPECIAL PROPERTIES ─────────────────────────────────────────────────────
+  special:
+    type: object
+    fields:
+      is_lingua_franca:
+        type: boolean
+        description: "Is this a common trade/diplomatic language?"
+        default: false
+      is_sacred:
+        type: boolean
+        description: "Used in religious/magical rituals?"
+        default: false
+      magical_properties:
+        type: string
+        description: "Does speaking/writing this language have magical effects?"
+      can_be_spoken_by:
+        type: list
+        description: "Physical requirements to speak (e.g. 'requires vocal cords', 'telepathy required', 'any humanoid')"
+        default: []
+      nonverbal_component:
+        type: string
+        description: "Gesture, pheromone, color-change, bioluminescence, etc."
+
+  # ─── META ───────────────────────────────────────────────────────────────────
+  origin:
+    type: string
+    description: "How this language came to exist"
+  first_appearance:
+    type: string
+  tags:
+    type: list
+    default: []

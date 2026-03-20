@@ -1,0 +1,59 @@
+# Campaign/RPG Preset — WorldBuilder
+# Additional fields for tabletop RPG campaigns
+
+genre: campaign
+description: "D&D, Pathfinder, or custom TTRPG campaigns"
+
+# Extra character fields for RPGs
+character_extensions:
+  level: 1
+  class: ""
+  subclass: ""
+  hp: 0
+  ac: 0
+  stats:
+    str: 10
+    dex: 10
+    con: 10
+    int: 10
+    wis: 10
+    cha: 10
+  proficiencies: []
+  spells_known: []
+  background: ""
+  alignment: ""
+
+# Session log template (replaces chapters for campaigns)
+session_template:
+  session_number: 1
+  date_played: ""
+  players_present: []
+  location: ""
+  summary: ""
+  key_events: []
+  loot_found: []
+  xp_awarded: 0
+  cliffhanger: ""
+  dm_notes: ""
+  next_session_hooks: []
+
+# Encounter template
+encounter_template:
+  name: ""
+  location: ""
+  type: combat | social | puzzle | exploration | trap
+  difficulty: easy | medium | hard | deadly
+  enemies: []
+  rewards: []
+  description: ""
+  dm_notes: ""
+
+# Quest template
+quest_template:
+  name: ""
+  giver: ""          # ref to character
+  type: main | side | personal | faction
+  status: available | active | completed | failed
+  objectives: []
+  rewards: []
+  consequences: []   # what happens if failed or ignored

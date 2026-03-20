@@ -1,0 +1,223 @@
+# Event Schema — WorldBuilder
+# An event is a significant happening with defined consequences and participants.
+# Includes battles, deaths, discoveries, treaties, natural disasters, etc.
+
+required:
+  - name
+  - type
+
+fields:
+  name:
+    type: string
+    description: "Event name or title"
+  aliases:
+    type: list
+    description: "Alternative names (historical names, titles, etc.)"
+    default: []
+  type:
+    type: enum
+    values: [war, battle, birth, death, founding, discovery, plague, cataclysm, trade_agreement, coronation, rebellion, treaty, milestone, marriage, festival, catastrophe, custom]
+    description: "Type of event"
+
+  # ─── TIMING ─────────────────────────────────────────────────────────────────
+  date:
+    type: string
+    description: "When event occurred (WorldDate, year, era, etc.)"
+  date_precision:
+    type: enum
+    values: [exact, approximate, approximate-season, approximate-year, unknown]
+    default: exact
+    description: "How precisely we know the date"
+  end_date:
+    type: string
+    description: "End date for duration events (sieges, wars, plagues, etc.)"
+  duration:
+    type: string
+    description: "How long event lasted (e.g., '3 days', '5 years')"
+
+  # ─── SCALE & SIGNIFICANCE ───────────────────────────────────────────────────
+  significance:
+    type: enum
+    values: [trivial, minor, notable, important, crucial, world-changing]
+    default: important
+    description: "Narrative importance level"
+  scope:
+    type: enum
+    values: [personal, family, local, regional, continental, global, cosmic]
+    default: regional
+    description: "Geographic/social scope of impact"
+  historical_importance:
+    type: string
+    description: "How historians regard this event"
+
+  # ─── PARTICIPANTS ───────────────────────────────────────────────────────────
+  participants:
+    type: list
+    description: "Entities involved in event with their roles"
+    items:
+      entity:
+        type: ref
+        target: [characters, factions, species]
+      role:
+        type: enum
+        values: [protagonist, antagonist, ally, witness, victim, beneficiary, facilitator, observer, affected, custom]
+        description: "What part this entity played"
+      impact:
+        type: string
+        description: "How event affected this entity"
+    default: []
+  primary_characters:
+    type: list
+    description: "Main characters involved"
+    items:
+      type: ref
+      target: characters
+    default: []
+  primary_factions:
+    type: list
+    description: "Factions with major roles"
+    items:
+      type: ref
+      target: factions
+    default: []
+
+  # ─── LOCATIONS ──────────────────────────────────────────────────────────────
+  locations:
+    type: list
+    description: "Where event took place"
+    items:
+      type: ref
+      target: locations
+    default: []
+  primary_location:
+    type: ref
+    target: locations
+    description: "Main location of event"
+
+  # ─── CAUSALITY ──────────────────────────────────────────────────────────────
+  caused_by:
+    type: list
+    description: "Events or conditions that led to this event"
+    items:
+      type: ref
+      target: events
+    default: []
+  root_causes:
+    type: list
+    description: "Underlying reasons/motivations"
+    default: []
+  immediate_trigger:
+    type: string
+    description: "The specific thing that started it"
+
+  # ─── CONSEQUENCES ───────────────────────────────────────────────────────────
+  leads_to:
+    type: list
+    description: "Events this directly caused"
+    items:
+      type: ref
+      target: events
+    default: []
+  immediate_consequences:
+    type: list
+    description: "What happened right after"
+    default: []
+  long_term_consequences:
+    type: list
+    description: "Effects felt long after event"
+    default: []
+
+  # ─── IMPACT ─────────────────────────────────────────────────────────────────
+  political_impact:
+    type: string
+    description: "How event changed power structures"
+  economic_impact:
+    type: string
+    description: "Trade, wealth, or resource consequences"
+  social_impact:
+    type: string
+    description: "Cultural or population effects"
+  magical_impact:
+    type: string
+    description: "Effects on magic or magical creatures"
+  death_toll:
+    type: string
+    description: "Lives lost (if applicable)"
+
+  # ─── PARTICIPANTS DATA ──────────────────────────────────────────────────────
+  casualties:
+    type: object
+    description: "Death and injury counts"
+    fields:
+      death_count:
+        type: string
+        description: "Number of deaths"
+      injured_count:
+        type: string
+        description: "Number injured"
+      missing_count:
+        type: string
+        description: "Number missing"
+
+  # ─── OUTCOMES ───────────────────────────────────────────────────────────────
+  outcome:
+    type: enum
+    values: [decisive, pyrrhic, stalemate, ongoing, ambiguous, reversed, subverted]
+    default: ambiguous
+    description: "How clearly the event resolved"
+  winner:
+    type: list
+    description: "Who benefited or 'won' (if applicable)"
+    items:
+      type: ref
+      target: [characters, factions]
+    default: []
+  loser:
+    type: list
+    description: "Who was harmed or 'lost' (if applicable)"
+    items:
+      type: ref
+      target: [characters, factions]
+    default: []
+
+  # ─── NARRATIVE ELEMENTS ────────────────────────────────────────────────────
+  narrative_significance:
+    type: string
+    description: "Why this event matters to the story"
+  turning_point:
+    type: boolean
+    default: false
+    description: "True if this event fundamentally changes the story"
+  public_knowledge:
+    type: boolean
+    default: true
+    description: "Is this event widely known or hidden?"
+
+  # ─── DESCRIPTIONS ───────────────────────────────────────────────────────────
+  descriptions:
+    type: object
+    description: "Multiple description styles"
+    fields:
+      machine:
+        type: string
+        description: "Concise, factual description"
+      human:
+        type: string
+        description: "Narrative-style description with drama and detail"
+      image_prompt:
+        type: string
+        description: "Prompt for generating artwork depicting the event"
+
+  # ─── META ───────────────────────────────────────────────────────────────────
+  sources:
+    type: list
+    description: "Where we know this from (characters, documents, artifacts)"
+    default: []
+  reliability:
+    type: enum
+    values: [firsthand, well-documented, rumored, conflicting-accounts, legend, false-history]
+    default: well-documented
+    description: "How reliable is our knowledge of this event?"
+  tags:
+    type: list
+    default: []
