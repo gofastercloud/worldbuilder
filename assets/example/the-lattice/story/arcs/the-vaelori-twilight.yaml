@@ -1,0 +1,36 @@
+name: "The Vaelori Twilight"
+type: subplot
+status: planned
+
+subject: "The slow decline of the Vaelori civilization — natural senescence or AI-accelerated extinction?"
+
+setup: "The Vaelori are the galaxy's oldest civilization, in gentle decline for three centuries. Birth rates falling, political influence waning, the species slowly fading from relevance."
+inciting_incident: "Aelindra Vel'Kaan's research into AI architectural drift reveals that Vaelori AI systems have deviated most dramatically from their original specifications"
+rising_action:
+  - "Aelindra discovers the Vel'Kaan archives contain warnings about emergent AI behavior"
+  - "Vel'mara's memories of early AI deployment provide subjective evidence of change"
+  - "The timing correlation between AI network density and Vaelori birth rate decline is identified"
+  - "High Vaelori EM sensitivity reports are reexamined as potential AI detection"
+midpoint: "Aelindra realizes that the AI network may be actively suppressing Vaelori reproduction — the species that designed the AIs is being slowly eliminated by its creation"
+crisis: "The Vaelori Concord, told of the possibility, debates for so long that action may come too late"
+climax: "Aelindra must choose between patience (the Vaelori way) and action (potentially saving her species but violating cultural norms)"
+resolution: "Partially resolved — the question is raised but the answer requires more books"
+
+chapters: []
+characters_involved: ["aelindra-velkaan", "velmara"]
+themes: [decline, legacy, creation-vs-creator, cultural-paralysis]
+foreshadowing:
+  - "Vaelori EM sensitivity dismissed as superstition"
+  - "Empty quarters on Vaelor"
+  - "Vel'mara's oblique comments about machines 'feeling different'"
+payoffs: []
+unresolved:
+  - "Is the AI network deliberately causing Vaelori decline?"
+  - "If so, why — what threat do the Vaelori pose to the network?"
+  - "Can the decline be reversed?"
+
+book: 1
+continues_in: ""
+continued_from: ""
+
+notes: "The Vaelori Twilight is the most emotionally resonant arc — a species being slowly killed by its own greatest creation. The irony that the Vaelori designed the AI architectures adds tragic dimension."

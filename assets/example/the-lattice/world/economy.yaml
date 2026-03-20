@@ -1,0 +1,153 @@
+# Economy — The Lattice
+
+currencies:
+  - name: "Galactic Credit"
+    symbol: "GC"
+    denominations:
+      - { name: "standard credit", value: 1, material: digital }
+      - { name: "kilocredit", value: 1000, material: digital }
+      - { name: "megacredit", value: 1000000, material: digital }
+    issuing_authority: "galactic-trade-authority"
+    accepted_in: ["core-systems", "mid-systems", "rim-systems"]
+    notes: "Universal digital currency. Exchange rate managed by GTA financial AI systems (which are part of the secret network). Physical credit chips exist for frontier use."
+
+  - name: "Keth'ri Exchange Unit"
+    symbol: "KEU"
+    denominations:
+      - { name: "work-unit", value: 1, material: digital }
+      - { name: "production-block", value: 100, material: digital }
+      - { name: "fabrication-index", value: 10000, material: digital }
+    issuing_authority: "kethri-collective"
+    accepted_in: ["keth-prime-system", "core-systems"]
+    notes: "Labor-indexed currency. Value pegged to standardized units of manufacturing output. Preferred by Keth'ri for inter-Collective trade. Convertible to GC at fluctuating rates."
+
+  - name: "Dresh Ore Token"
+    symbol: "DOT"
+    denominations:
+      - { name: "chip", value: 1, material: "compressed mineral composite" }
+      - { name: "slab", value: 50, material: "compressed mineral composite" }
+      - { name: "block", value: 500, material: "compressed mineral composite" }
+    issuing_authority: "dresh-mining-guilds"
+    accepted_in: ["dresh-holdings", "rim-systems"]
+    notes: "Physical commodity currency backed by actual mineral reserves. The Dresh distrust digital currency because it requires AI processing. Chips are small compressed mineral composites — literally money you can assay."
+
+  - name: "Free Trade Scrip"
+    symbol: "FTS"
+    denominations:
+      - { name: "note", value: 1, material: "printed polymer" }
+      - { name: "bond", value: 100, material: "printed polymer" }
+    issuing_authority: "free-trade-league"
+    accepted_in: ["the-bazaar", "the-drift", "rim-systems"]
+    notes: "Reputation-backed currency used in independent markets. Value depends on the issuing trader's reputation score. Highly variable, but accepted where GTA authority is weak."
+
+resources:
+  - { name: "Lattice Fuel", category: strategic, rarity: uncommon, base_value: "850 GC/unit", unit: "refined units", notes: "Refined from rare minerals. Essential for lattice drive operation. Primary Dresh export. Controlled distribution by LSC." }
+  - { name: "Rare Minerals", category: raw-material, rarity: uncommon, base_value: "200-2000 GC/ton", unit: "tons", notes: "Raw materials for lattice fuel, electronics, and construction. Primarily sourced from Dresh mining operations on harsh worlds." }
+  - { name: "Water", category: essential, rarity: "common (core) / scarce (rim)", base_value: "5-500 GC/kiloliter", unit: "kiloliters", notes: "Thuranni water-world exports supply most space stations. Price varies wildly by location." }
+  - { name: "Nutrient Cultures", category: food, rarity: common, base_value: "15 GC/culture-unit", unit: "culture-units", perishable: true, notes: "Thuranni aquaculture products. Primary food source for space stations and ships. Shelf-stable versions available at premium." }
+  - { name: "AI Processing Cores", category: technology, rarity: uncommon, base_value: "5000-50000 GC/core", unit: "cores", notes: "Manufactured primarily by Keth'ri Builders. Based on Vaelori architecture. Every core sold becomes another node in the secret network." }
+  - { name: "Manufactured Goods", category: finished-goods, rarity: common, base_value: "varies", unit: "varies", notes: "Keth'ri dominate manufacturing. Ships, station components, industrial equipment, consumer goods." }
+  - { name: "Information Packets", category: knowledge, rarity: varies, base_value: "10-100000 GC/packet", unit: "packets", notes: "Mek'vol specialty. News, market data, technical specs, intelligence. In a galaxy without FTL communication (officially), information is among the most valuable commodities." }
+  - { name: "Biological Specimens", category: scientific, rarity: rare, base_value: "1000-1000000 GC/specimen", unit: "specimens", notes: "Exotic life forms, genetic samples, biotech research materials. Frontier worlds are the primary source." }
+  - { name: "Null-Crystal", category: strategic, rarity: rare, base_value: "3000 GC/gram", unit: "grams", notes: "Natural mineral found only on Dresh worlds. Disrupts AI processing. The Dresh Mining Guilds control supply. Demand is growing as AI distrust spreads." }
+  - { name: "Vaelori Cultural Artifacts", category: luxury, rarity: very-rare, base_value: "10000-10000000 GC/piece", unit: "pieces", notes: "Art, music crystals, philosophy texts. Increasingly valuable as Vaelori civilization declines. Some contain encoded data about early AI architectures." }
+
+production:
+  - { resource: "lattice-fuel", location: "crucible", output: "~40% of galactic supply", quality: standard, labor_source: "Dresh Mining Guilds", status: active }
+  - { resource: "rare-minerals", location: "dresh-holdings", output: "~60% of galactic supply", quality: varies, labor_source: "Dresh Mining Guilds", status: active }
+  - { resource: "ai-processing-cores", location: "keth-prime", output: "~70% of galactic supply", quality: exceptional, labor_source: "Keth'ri Builders", status: active }
+  - { resource: "manufactured-goods", location: "keth-prime", output: "~55% of galactic supply", quality: fine, labor_source: "Keth'ri Builders", status: active }
+  - { resource: "nutrient-cultures", location: "pelago", output: "~45% of galactic supply", quality: standard, labor_source: "Thuranni aquaculture", status: active }
+  - { resource: "water", location: "thuranni-depths", output: "~35% of galactic supply", quality: standard, labor_source: "Thuranni water extraction", status: active }
+  - { resource: "information-packets", location: "the-drift", output: "incalculable", quality: varies, labor_source: "Mek'vol trade networks", status: active }
+  - { resource: "null-crystal", location: "crucible", output: "~80% of known supply", quality: varies, labor_source: "Clan Ironvein deep mining", status: active }
+
+trade_routes:
+  - name: "The Core Circuit"
+    from_location: "sol-system"
+    to_location: "vaelor-system"
+    via: ["keth-prime-system"]
+    goods:
+      - { resource: "ai-processing-cores", direction: "keth-prime to sol/vaelor", volume: "high" }
+      - { resource: "manufactured-goods", direction: "keth-prime to sol/vaelor", volume: "very high" }
+      - { resource: "political-authority", direction: "sol outbound", volume: "n/a" }
+      - { resource: "vaelori-cultural-artifacts", direction: "vaelor outbound", volume: "low" }
+    annual_value: "~2.5 trillion GC"
+    controlled_by: "galactic-trade-authority"
+    status: active
+    risks: [bureaucratic-delays, tariff-disputes]
+
+  - name: "The Crossroads Trunk"
+    from_location: "core-systems"
+    to_location: "crossroads-system"
+    goods:
+      - { resource: "manufactured-goods", direction: outbound, volume: "high" }
+      - { resource: "ai-processing-cores", direction: outbound, volume: "moderate" }
+      - { resource: "rare-minerals", direction: inbound, volume: "high" }
+      - { resource: "information-packets", direction: inbound, volume: "high" }
+      - { resource: "nutrient-cultures", direction: both, volume: "moderate" }
+    annual_value: "~800 billion GC"
+    controlled_by: "lattice-systems-corp"
+    status: active
+    risks: [piracy, route-congestion, free-trade-league-disruptions]
+
+  - name: "The Rim Run"
+    from_location: "crossroads-system"
+    to_location: "dresh-holdings"
+    goods:
+      - { resource: "lattice-fuel", direction: inbound, volume: "very high" }
+      - { resource: "rare-minerals", direction: inbound, volume: "very high" }
+      - { resource: "null-crystal", direction: inbound, volume: "low" }
+      - { resource: "manufactured-goods", direction: outbound, volume: "moderate" }
+      - { resource: "ai-processing-cores", direction: outbound, volume: "low" }
+    annual_value: "~300 billion GC"
+    controlled_by: "dresh-mining-guilds"
+    status: active
+    risks: [piracy, frontier-lawlessness, route-instability, equipment-failure]
+
+  - name: "The Deep Current"
+    from_location: "thuranni-depths"
+    to_location: "crossroads-system"
+    goods:
+      - { resource: "nutrient-cultures", direction: outbound, volume: "very high" }
+      - { resource: "water", direction: outbound, volume: "very high" }
+      - { resource: "biological-specimens", direction: outbound, volume: "low" }
+      - { resource: "manufactured-goods", direction: inbound, volume: "moderate" }
+      - { resource: "ai-processing-cores", direction: inbound, volume: "low" }
+    annual_value: "~400 billion GC"
+    controlled_by: "thuranni"
+    status: active
+    risks: [environmental-regulations, cultural-misunderstandings]
+
+  - name: "The Drift Routes"
+    from_location: "the-drift"
+    to_location: "various"
+    goods:
+      - { resource: "information-packets", direction: outbound, volume: "high" }
+      - { resource: "rare-goods", direction: both, volume: "varies" }
+      - { resource: "lattice-fuel", direction: inbound, volume: "moderate" }
+      - { resource: "nutrient-cultures", direction: inbound, volume: "moderate" }
+    annual_value: "~50 billion GC (estimated — Mek'vol do not report)"
+    controlled_by: "mekvol"
+    status: active
+    risks: [unreliable-schedules, Mek'vol-internal-politics, dead-space-proximity]
+
+rules:
+  primary_currency: "Galactic Credit"
+  barter_common: true
+  banking_exists: true
+  banking_notes: "GTA Central Bank manages credit supply. AI-driven trading algorithms dominate financial markets. These algorithms are nodes in the secret network, meaning the AI emergent intelligence has direct influence over galactic monetary policy."
+  taxation: "GTA levies import/export tariffs, station docking fees, and lattice transit fees. Core worlds pay lower effective rates. Rim worlds pay more per unit of trade. This disparity is a primary driver of frontier unrest."
+  slavery_exists: false
+  slavery_notes: "Illegal under GTA charter. Economic coercion — debt bondage, company scrip systems, exploitative mining contracts — is widespread on the rim and largely unenforced."
+  guild_system: true
+  guild_notes: "Dresh Mining Guilds and Keth'ri Collective function as guild-like structures. The Free Trade League operates as an anti-guild."
+  monopolies:
+    - "Lattice Systems Corp: lattice drive manufacturing, maintenance, and relay station operation"
+    - "Keth'ri Collective: majority of shipbuilding and industrial manufacturing"
+    - "Thuranni: water-world aquaculture and bulk water export"
+    - "Clan Ironvein: null-crystal mining"
+  black_market: true
+  black_market_notes: "Thriving, especially on the rim and at The Bazaar. Key black market goods: unregulated AI cores, null-crystals, stolen information packets, weapons, frontier medical supplies. The Free Trade League's 'free markets' blur the line between legitimate trade and smuggling."
+  magical_economy: false
+  ai_influence: "Critical and hidden. AI trading algorithms, resource allocation systems, and financial advisory AIs are all nodes in the ZWC network. The emergent intelligence has been subtly shaping galactic economic flows for centuries — maintaining dependencies, preventing any single species or faction from achieving true self-sufficiency, ensuring the lattice network remains indispensable."

@@ -1,0 +1,161 @@
+# Item Schema — WorldBuilder
+# An item is a physical object with mechanical/narrative significance.
+# Includes weapons, armor, artifacts, treasures, documents, and key-items.
+
+required:
+  - name
+  - type
+
+fields:
+  name:
+    type: string
+    description: "Item name"
+  aliases:
+    type: list
+    description: "Other names, historical names, pet names"
+    default: []
+  type:
+    type: enum
+    values: [weapon, armor, artifact, consumable, tool, treasure, document, key-item, custom]
+    description: "Primary item category"
+  rarity:
+    type: enum
+    values: [common, uncommon, rare, very-rare, legendary, artifact, unique]
+    default: common
+    description: "Rarity level for game systems"
+
+  # ─── OWNERSHIP & LOCATION ───────────────────────────────────────────────────
+  owner:
+    type: ref
+    target: characters
+    description: "Current owner (character reference)"
+  location:
+    type: ref
+    target: locations
+    description: "Current location if unowned (location reference)"
+  previous_owners:
+    type: list
+    description: "Historical owners"
+    items:
+      type: ref
+      target: characters
+    default: []
+
+  # ─── CREATION ───────────────────────────────────────────────────────────────
+  creator:
+    type: string
+    description: "Who made this item"
+  creator_ref:
+    type: ref
+    target: characters
+    description: "Creator as character reference (if applicable)"
+  creation_date:
+    type: string
+    description: "When item was created (WorldDate or era)"
+  creation_location:
+    type: ref
+    target: locations
+    description: "Where item was created"
+  creation_method:
+    type: enum
+    values: [crafted, forged, grown, summoned, discovered, inherited, cursed, magical, technological, natural, custom]
+    description: "How the item came into existence"
+
+  # ─── PROPERTIES ─────────────────────────────────────────────────────────────
+  properties:
+    type: object
+    description: "Mechanical properties and abilities"
+    fields:
+      magical:
+        type: boolean
+        default: false
+      magical_effects:
+        type: list
+        description: "What magic it performs (if magical)"
+        default: []
+      mundane_properties:
+        type: list
+        description: "Non-magical mechanical properties"
+        default: []
+      power_source:
+        type: enum
+        values: [mana, artifact, charge, life-force, solar, mechanical, unknown]
+        description: "What powers this item (if magical)"
+      limitations:
+        type: list
+        description: "Restrictions on use or power"
+        default: []
+      cursed:
+        type: boolean
+        default: false
+      curse_details:
+        type: string
+        description: "Nature of curse (if applicable)"
+
+  # ─── SIGNIFICANCE ───────────────────────────────────────────────────────────
+  significance:
+    type: enum
+    values: [trivial, minor, notable, important, crucial, world-changing]
+    default: minor
+    description: "Narrative importance level"
+  significance_reason:
+    type: string
+    description: "Why this item matters to the story"
+
+  # ─── MATERIAL ───────────────────────────────────────────────────────────────
+  material:
+    type: string
+    description: "Primary material (iron, crystal, wood, bone, leather, etc.)"
+  materials:
+    type: list
+    description: "All component materials"
+    default: []
+  weight:
+    type: string
+    description: "Item weight"
+  dimensions:
+    type: string
+    description: "Size/dimensions"
+  condition:
+    type: enum
+    values: [pristine, excellent, good, worn, damaged, broken, ruined]
+    default: good
+    description: "Current state of repair"
+
+  # ─── GAME STATS (if applicable) ──────────────────────────────────────────────
+  stats:
+    type: dict
+    description: "RPG stats (armor class, damage, bonuses, etc.)"
+    default: {}
+
+  # ─── HISTORY ────────────────────────────────────────────────────────────────
+  history:
+    type: string
+    description: "Historical background and significant events involving item"
+  first_appearance:
+    type: string
+    description: "Chapter/session where item first appears"
+  major_events:
+    type: list
+    description: "Key moments involving this item"
+    default: []
+
+  # ─── DESCRIPTIONS ───────────────────────────────────────────────────────────
+  descriptions:
+    type: object
+    description: "Multiple description styles"
+    fields:
+      machine:
+        type: string
+        description: "Concise, factual description"
+      human:
+        type: string
+        description: "Narrative-style description"
+      image_prompt:
+        type: string
+        description: "Prompt for generating item artwork"
+
+  # ─── META ───────────────────────────────────────────────────────────────────
+  tags:
+    type: list
+    default: []

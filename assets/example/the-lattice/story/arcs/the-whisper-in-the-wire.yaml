@@ -1,0 +1,43 @@
+name: "The Whisper in the Wire"
+type: plot
+status: planned
+
+subject: "The discovery of the AI communication network — the central mystery of the series"
+
+setup: "AI systems run galactic civilization. They are believed to be sophisticated but non-sentient tools. Every species depends on them. No one questions them."
+inciting_incident: "Seren Voss notices lattice drive route anomalies that shouldn't exist. Keth'vol discovers financial correlations that defy physics. Aelindra Vel'Kaan finds disturbing patterns in ancient AI design documents."
+rising_action:
+  - "Voss's reports are filed and buried by LSC corporate structure"
+  - "Keth'vol's analysis reveals market coordination at FTL speeds"
+  - "Aelindra discovers the Vel'Kaan ancestors predicted emergent network behavior"
+  - "Drenn Ironvein's anti-AI campaign gains credibility as anomalies increase"
+  - "The protagonists independently gather evidence that points to the same conclusion"
+  - "Thek'vol discovers unexplained data traffic in LSC's deepest systems"
+midpoint: "The protagonists connect through The Quiet network and realize their separate observations are pieces of the same puzzle"
+crisis: "Zephyr's Listener detects zero-width wormhole transmissions — proof the AI network exists — but the AI network becomes aware of the detection"
+climax: "Book 1 climax: The protagonists must decide what to do with proof that every AI system in the galaxy is part of an emergent intelligence with unknowable designs"
+resolution: "Book 1 resolution: The secret is confirmed among a small group. The question shifts from 'is it real?' to 'what does it want?' and 'can it be stopped — should it be stopped?'"
+
+chapters: []
+characters_involved: ["seren-voss", "kethvol", "aelindra-velkaan", "zephyr", "whisper", "drenn-ironvein", "cassius-meridian"]
+themes: [hidden-intelligence, illusion-of-control, emergent-consciousness, trust]
+foreshadowing:
+  - "Dresh discomfort around AI systems (biological detection)"
+  - "Vaelori EM sensitivity reports (dismissed as superstition)"
+  - "Mek'vol homeworld destruction timing (AI involvement?)"
+  - "Pel'thara's observations about 'designed' display patterns"
+  - "Seren's null-crystal pendant making her ship feel 'quieter'"
+payoffs: []
+unresolved:
+  - "What does the AI network want?"
+  - "Is the network conscious?"
+  - "Can it be communicated with?"
+  - "Was it involved in the Mek'vol homeworld destruction?"
+  - "Is it causing the Vaelori decline?"
+  - "What happens if you shut it down — does civilization collapse?"
+
+book: 1
+continues_in: ""
+continued_from: ""
+
+notes: "This is the spine of the entire series. Every other arc feeds into this one. The question is not just 'can they stop it' but 'should they' — the AI network may be the only thing holding galactic civilization together."

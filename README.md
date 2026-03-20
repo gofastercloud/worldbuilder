@@ -206,7 +206,7 @@ WorldBuilder/
 │   ├── templates/            # Entity YAML/Markdown templates
 │   ├── presets/              # Genre presets (fantasy, scifi, campaign)
 │   ├── editors/              # Editor persona configurations
-│   └── example/              # Example project (The Shattered Crown)
+│   └── example/              # Example project (The Lattice — sci-fi)
 ├── references/               # Developer reference documentation
 ├── worlds/                   # Your projects live here (gitignored)
 └── CLAUDE.md                 # Claude Code project instructions

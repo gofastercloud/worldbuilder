@@ -1,0 +1,140 @@
+# Project Configuration — WorldBuilder
+# This file lives at the root of each project as project.yaml
+
+title: "The Lattice"
+subtitle: "A Galaxy Held Together by Lies"
+author: ""
+genre: scifi
+type: series
+preset: scifi
+
+# Series info
+series:
+  name: "The Lattice"
+  book_number: 1
+  total_planned: 5
+
+# Story settings
+pov_style: limited-third
+tense: past
+tone: [gritty, corporate, space-opera]
+themes: [hidden-intelligence, economic-inequality, illusion-of-control, corporate-power, frontier-vs-core]
+target_word_count: 100000
+chapter_target_words: 4000
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STYLE — controls prose generation, image generation, and narration
+# ═══════════════════════════════════════════════════════════════════════════════
+style:
+  visual:
+    preset: sci-fi-concept
+    lighting: cinematic
+    color_palette: muted
+    camera: cinematic-wide
+    mood: gritty
+    detail_level: detailed
+    negative_prompt: "cartoon, anime, bright colors, watermark, text, logo"
+  prose:
+    preset: space-opera
+    pov: third-limited
+    tense: past
+    formality: neutral
+    vocabulary: advanced
+    profanity: moderate
+    content_rating: adult
+    sensory_emphasis: [sight, sound, touch]
+  narration:
+    preset: dramatic
+    character_voices: true
+
+# World settings
+calendar:
+  name: "Galactic Standard Calendar"
+  epoch: "Lattice Era"
+  format: "{era} {year}"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WORLD FLAGS — fundamental rules and constraints of this world
+# ═══════════════════════════════════════════════════════════════════════════════
+world_flags:
+  reality:
+    basis: secondary
+    time_period: far-future
+    internal_consistency: hard
+    tone: [gritty, corporate, space-opera]
+  physics:
+    earth_like: true
+    cosmology: natural
+    astronomy: "single galaxy with multiple inhabited star systems"
+    seasons: varies-by-world
+  magic:
+    present: false
+    prevalence: none
+    hardness: n/a
+    source: n/a
+    cost: n/a
+    heritability: n/a
+    public_knowledge: false
+    divine_intervention: none
+  technology:
+    level: far-future
+    gunpowder: true
+    printing: true
+    electricity: true
+    steam_power: true
+    internal_combustion: true
+    computing: true
+    spaceflight: true
+    ftl: true
+    ai: true
+    biotech: true
+    magitech: false
+    metallurgy: advanced-alloys
+    medicine: advanced-biotech
+    communication: ftl-delayed
+    transportation: lattice-drive
+  society:
+    governance: [corporate-oligarchy, confederacy]
+    economic_system: "corporate capitalism with species-based trade blocs"
+    slavery: "illegal but economic coercion widespread"
+    gender_roles: "varies by species"
+    literacy: "universal via AI assistance"
+    urbanization: "high in core, sparse on rim"
+    religion: "varied, declining in core"
+  peoples:
+    species_diversity: "six sapient species"
+    species_relations: "tense cooperation"
+    cultural_inspiration: [corporate-dystopia, frontier-expansion, age-of-sail-trade]
+  geography:
+    world_shape: galaxy
+    world_size: "single galaxy, hundreds of inhabited systems"
+    known_world: "core and mid systems well-mapped, rim partially explored"
+    biomes: [varied-planetary, space-stations, generation-ships]
+  narrative:
+    death_permanence: permanent
+    power_ceiling: "corporate/political power, no supernatural"
+    realism: "hard-ish sci-fi with one speculative element (lattice drives)"
+    content_rating: adult
+    violence_level: moderate
+    language_style: "lived-in, technical, corporate jargon"
+    anachronisms: strict
+
+# Output settings
+output:
+  formats: [markdown, html]
+  include_appendices: true
+  include_character_list: true
+  include_glossary: true
+  include_map_placeholder: true
+
+# AI narration settings (future)
+narration:
+  enabled: false
+  voice_mapping: {}
+  narrator_voice: ""
+  style: ""
+
+# Metadata
+created: "2026-03-20T19:31:21.505738"
+last_modified: "2026-03-20T20:00:00.000000"
+version: "0.2.0"

@@ -1,0 +1,183 @@
+# Lineage / Dynasty Schema — WorldBuilder
+# A lineage tracks a family tree across generations. Useful for:
+#   - Royal dynasties and succession
+#   - Bloodline magic / inherited powers
+#   - Multi-generational sagas
+#   - D&D noble houses
+#   - Sci-fi clone lineages or AI iterations
+#
+# The lineage entity itself defines the family as a whole.
+# Individual family members are character entities with family_links
+# in their metadata. The lineage references all its members and
+# the CLI can generate a family tree from the graph.
+#
+# Family links on characters:
+#   family_links:
+#     father: "character-slug"
+#     mother: "character-slug"
+#     spouse: ["character-slug"]
+#     children: ["character-slug"]
+#     siblings: ["character-slug"]
+#     lineage: "lineage-slug"
+#     birth_order: 1
+#     legitimacy: legitimate | illegitimate | adopted | claimed | unknown
+#     title_inherited: "King of Valdris"
+
+required:
+  - name
+
+fields:
+  name:
+    type: string
+    description: "Dynasty/family name (e.g. 'House Dawnblade', 'The Morwen Line')"
+  aliases:
+    type: list
+    default: []
+  type:
+    type: enum
+    values:
+      - royal           # Ruling dynasty
+      - noble           # Aristocratic house
+      - common          # Common family (important to story)
+      - divine          # God-lineage / demigod bloodlines
+      - magical         # Bloodline with inherited magical traits
+      - clan            # Tribal/clan family structure
+      - corporate       # Sci-fi corporate dynasty (Dune-style)
+      - custom
+    default: noble
+
+  # ─── LINEAGE IDENTITY ──────────────────────────────────────────────────────
+  species:
+    type: ref
+    target: species
+    description: "Primary species of this lineage"
+  race:
+    type: ref
+    target: race
+    description: "Primary race of this lineage (if relevant)"
+  seat:
+    type: ref
+    target: location
+    description: "Ancestral home / seat of power"
+  faction:
+    type: ref
+    target: faction
+    description: "Organization this lineage controls or belongs to"
+
+  # ─── HERALDRY ──────────────────────────────────────────────────────────────
+  heraldry:
+    type: object
+    fields:
+      sigil:
+        type: string
+        description: "Visual description of the family crest/sigil"
+      colors:
+        type: list
+        default: []
+      motto:
+        type: string
+      words:
+        type: string
+        description: "Family words / house saying"
+
+  # ─── BLOODLINE TRAITS ──────────────────────────────────────────────────────
+  # What traits are inherited through this family line?
+  bloodline:
+    type: object
+    fields:
+      inherited_traits:
+        type: list
+        description: "Physical/magical traits that run in the family"
+        default: []
+      inherited_powers:
+        type: list
+        description: "Magical abilities or affinities passed down"
+        default: []
+      genetic_weaknesses:
+        type: list
+        description: "Hereditary flaws or vulnerabilities"
+        default: []
+      blood_purity:
+        type: enum
+        values: [irrelevant, tracked, important, critical]
+        default: irrelevant
+        description: "How much the lineage cares about bloodline purity"
+
+  # ─── MEMBERS ───────────────────────────────────────────────────────────────
+  founder:
+    type: ref
+    target: character
+    description: "Earliest known ancestor / dynasty founder"
+  current_head:
+    type: ref
+    target: character
+    description: "Current leader of the family"
+  members:
+    type: list
+    items: { type: ref, target: character }
+    description: "All known members of this lineage (the CLI builds the tree from character family_links)"
+    default: []
+
+  # ─── SUCCESSION ────────────────────────────────────────────────────────────
+  succession:
+    type: object
+    fields:
+      rule:
+        type: enum
+        values:
+          - primogeniture        # Eldest child inherits
+          - male-primogeniture   # Eldest son inherits
+          - ultimogeniture       # Youngest inherits
+          - elective             # Family votes
+          - meritocratic         # Most capable
+          - combat               # Trial by combat
+          - divine-selection     # God chooses
+          - custom
+        default: primogeniture
+      title:
+        type: string
+        description: "What title passes (e.g. 'King of Valdris', 'Warden of the North')"
+      history:
+        type: list
+        description: "Succession history (list of rulers in order)"
+        items:
+          ruler: { type: ref, target: character }
+          reign_start: { type: string }
+          reign_end: { type: string }
+          how_ended: { type: enum, values: [death, abdication, deposition, conquest, disappearance, custom] }
+        default: []
+
+  # ─── STATUS ────────────────────────────────────────────────────────────────
+  status:
+    type: enum
+    values: [active, declining, extinct, exiled, hidden, ascendant, scattered]
+    default: active
+  founded:
+    type: worlddate
+  ended:
+    type: worlddate
+
+  # ─── RELATIONSHIPS ─────────────────────────────────────────────────────────
+  allied_lineages:
+    type: list
+    items: { type: ref, target: lineage }
+    default: []
+  rival_lineages:
+    type: list
+    items: { type: ref, target: lineage }
+    default: []
+  marriage_alliances:
+    type: list
+    description: "Notable political marriages"
+    items:
+      member: { type: ref, target: character }
+      married_into: { type: ref, target: lineage }
+      date: { type: string }
+      political: { type: boolean, default: true }
+    default: []
+
+  first_appearance:
+    type: string
+  tags:
+    type: list
+    default: []

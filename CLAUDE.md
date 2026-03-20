@@ -71,4 +71,4 @@ Any directory containing `project.yaml` is a project. The CLI and MCP server fin
 
 ## Example Project
 
-`assets/example/the-shattered-crown/` is a working fantasy project. Use it as a reference for entity structure and cross-referencing patterns.
+`assets/example/the-lattice/` is a working sci-fi project (~143 files). Use it as a reference for entity structure, cross-referencing patterns, story/campaign output, and wizard-generated worlds.
