@@ -12,6 +12,8 @@ The core model has 11 entity types that cross-reference each other by slug. A gr
 
 **This tool is designed to be used inside [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or the Claude Cowork app.** The wizard, generate, write, and edit commands produce prompts for Claude — they don't generate prose directly.
 
+**New here?** Start with the [Quick Start Guide](docs/QUICKSTART.md). For exhaustive documentation of all commands, schemas, and configuration, see the [Reference](docs/REFERENCE.md).
+
 ## System Requirements
 
 | Requirement | Minimum | Recommended |
@@ -67,6 +69,12 @@ uv sync --extra imagegen
 # Start the web UI — model loads on first image request
 uv run python webapp/app.py 5050
 ```
+
+<p align="center">
+  <img src="assets/images/imagegen.jpg" alt="Entity visualization — Keth'vol character with generated portrait, prompt, style selector, and voice sample" width="400">
+  <br>
+  <em>Entity detail view showing generated portrait (photorealistic LoRA), enriched prompt, and voice sample controls</em>
+</p>
 
 ### Style Presets (LoRA-based)
 
