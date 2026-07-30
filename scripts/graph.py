@@ -21,6 +21,14 @@ from typing import Any, Callable, Optional
 
 import yaml
 
+# Prefer the libyaml-backed loader when PyYAML was built with it: identical
+# safe subset, ~9x faster, which matters because every entity file's
+# frontmatter is parsed on each whole-world scan.
+try:
+    from yaml import CSafeLoader as _SafeLoader
+except ImportError:  # pragma: no cover - PyYAML built without libyaml
+    from yaml import SafeLoader as _SafeLoader
+
 
 # ─── Data classes ─────────────────────────────────────────────────────────────
 
@@ -82,7 +90,7 @@ def _parse_entity_file(file_path: Path) -> tuple[dict, str]:
     if len(parts) < 3:
         # Malformed — return empty meta and full text as body
         return {}, text
-    meta = yaml.safe_load(parts[1]) or {}
+    meta = yaml.load(parts[1], Loader=_SafeLoader) or {}
     body = parts[2].lstrip("\n")
     return meta, body
 

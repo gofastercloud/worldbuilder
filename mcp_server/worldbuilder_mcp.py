@@ -16,6 +16,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
+
+# Prefer the libyaml-backed loader when PyYAML was built with it: identical
+# safe subset, ~9x faster, which matters because every entity file's
+# frontmatter is parsed on each whole-world scan.
+try:
+    from yaml import CSafeLoader as _SafeLoader
+except ImportError:  # pragma: no cover - PyYAML built without libyaml
+    from yaml import SafeLoader as _SafeLoader
 from mcp.server.fastmcp import FastMCP
 
 # ─── Constants ──────────────────────────────────────────────────────────────
@@ -95,7 +103,7 @@ def _resolve_project(project: Optional[str] = None) -> Path:
 
 def _load_yaml(filepath: Path) -> dict:
     with open(filepath) as f:
-        return yaml.safe_load(f) or {}
+        return yaml.load(f, Loader=_SafeLoader) or {}
 
 
 def _load_entity_file(filepath: Path) -> dict:
@@ -105,7 +113,7 @@ def _load_entity_file(filepath: Path) -> dict:
     if content.startswith("---"):
         parts = content.split("---", 2)
         if len(parts) >= 3:
-            meta = yaml.safe_load(parts[1]) or {}
+            meta = yaml.load(parts[1], Loader=_SafeLoader) or {}
             body = parts[2].strip()
             return {"meta": meta, "body": body, "path": str(filepath)}
     return {"meta": {}, "body": content, "path": str(filepath)}

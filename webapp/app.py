@@ -15,6 +15,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 import yaml
 
+# Prefer the libyaml-backed loader when PyYAML was built with it: identical
+# safe subset, ~9x faster, which matters because every entity file's
+# frontmatter is parsed on each whole-world scan.
+try:
+    from yaml import CSafeLoader as _SafeLoader
+except ImportError:  # pragma: no cover - PyYAML built without libyaml
+    from yaml import SafeLoader as _SafeLoader
+
 # ─── Image backend ───────────────────────────────────────────────────────────
 # Z-Image-Turbo via mflux (MLX-native, Apple Silicon)
 
@@ -55,7 +63,7 @@ def find_projects():
             if p.is_dir() and (p / "project.yaml").exists() and p.name not in seen:
                 seen.add(p.name)
                 with open(p / "project.yaml") as f:
-                    config = yaml.safe_load(f) or {}
+                    config = yaml.load(f, Loader=_SafeLoader) or {}
                 projects.append({
                     "slug": p.name,
                     "title": config.get("title", p.name),
@@ -82,7 +90,7 @@ def load_project(slug):
     if not p:
         return None
     with open(p / "project.yaml") as f:
-        return yaml.safe_load(f) or {}
+        return yaml.load(f, Loader=_SafeLoader) or {}
 
 
 def slugify(name):
@@ -104,7 +112,7 @@ def load_entity_file(filepath):
     if content.startswith("---"):
         parts = content.split("---", 2)
         if len(parts) >= 3:
-            meta = yaml.safe_load(parts[1]) or {}
+            meta = yaml.load(parts[1], Loader=_SafeLoader) or {}
             body = parts[2].strip()
             return {"meta": meta, "body": body, "file": str(filepath)}
     return {"meta": {}, "body": content, "file": str(filepath)}
@@ -164,7 +172,7 @@ def load_calendar(project_slug):
     cal_file = p / "world" / "calendar.yaml"
     if cal_file.exists():
         with open(cal_file) as f:
-            return yaml.safe_load(f) or {}
+            return yaml.load(f, Loader=_SafeLoader) or {}
     return {}
 
 
@@ -176,7 +184,7 @@ def load_economy(project_slug):
     eco_file = p / "world" / "economy.yaml"
     if eco_file.exists():
         with open(eco_file) as f:
-            return yaml.safe_load(f) or {}
+            return yaml.load(f, Loader=_SafeLoader) or {}
     return {}
 
 

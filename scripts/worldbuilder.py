@@ -29,6 +29,14 @@ from pathlib import Path
 
 import yaml
 
+# Prefer the libyaml-backed loader when PyYAML was built with it: identical
+# safe subset, ~9x faster, which matters because every entity file's
+# frontmatter is parsed on each whole-world scan.
+try:
+    from yaml import CSafeLoader as _SafeLoader
+except ImportError:  # pragma: no cover - PyYAML built without libyaml
+    from yaml import SafeLoader as _SafeLoader
+
 # Where are the templates?
 TOOL_DIR = Path(__file__).parent
 SKILL_ROOT = TOOL_DIR.parent
@@ -78,7 +86,7 @@ def load_project(project_path):
     """Load and return project config."""
     config_file = project_path / "project.yaml"
     with open(config_file, "r") as f:
-        return yaml.safe_load(f)
+        return yaml.load(f, Loader=_SafeLoader)
 
 
 def slugify(name):
@@ -232,7 +240,7 @@ def parse_frontmatter(filepath):
         return None, content
 
     try:
-        meta = yaml.safe_load(parts[1])
+        meta = yaml.load(parts[1], Loader=_SafeLoader)
         body = parts[2]
         return meta, body
     except yaml.YAMLError:
@@ -270,7 +278,7 @@ def collect_entities(project_dir):
                 continue
             with open(f) as fh:
                 try:
-                    meta = yaml.safe_load(fh)
+                    meta = yaml.load(fh, Loader=_SafeLoader)
                     entities.setdefault(entity_type, {})[f.stem] = {"meta": meta, "body": "", "file": f}
                 except yaml.YAMLError:
                     pass
@@ -477,7 +485,7 @@ def gather_temporal_context(entities, calendar, anchor_type, anchor_value, confi
         eco_file = project_dir / "world" / "economy.yaml"
         if eco_file.exists():
             with open(eco_file) as f:
-                economy = yaml.safe_load(f) or {}
+                economy = yaml.load(f, Loader=_SafeLoader) or {}
 
     return {
         "anchor_event": anchor_event,
@@ -974,7 +982,7 @@ def load_calendar(project_dir):
     cal_file = project_dir / "world" / "history" / "calendar.yaml"
     if cal_file.exists():
         with open(cal_file) as f:
-            return yaml.safe_load(f) or {}
+            return yaml.load(f, Loader=_SafeLoader) or {}
     return {}
 
 
@@ -1191,7 +1199,7 @@ def cmd_validate(args):
     tech_keywords = {}
     if worldrules_file.exists():
         with open(worldrules_file) as f:
-            wr = yaml.safe_load(f) or {}
+            wr = yaml.load(f, Loader=_SafeLoader) or {}
             tech_keywords = wr.get("tech_keywords", {})
 
     # Scan chapter prose for tech anachronisms
@@ -2004,7 +2012,7 @@ def list_editors():
     if EDITOR_DIR.exists():
         for f in EDITOR_DIR.glob("*.yaml"):
             with open(f) as fh:
-                data = yaml.safe_load(fh) or {}
+                data = yaml.load(fh, Loader=_SafeLoader) or {}
                 editors[f.stem] = data
     return editors
 
@@ -3315,7 +3323,7 @@ def cmd_economy(args):
         return
 
     with open(eco_file) as f:
-        eco = yaml.safe_load(f) or {}
+        eco = yaml.load(f, Loader=_SafeLoader) or {}
 
     config = load_project(project_dir)
     title = config.get("title", "Untitled")
@@ -3429,7 +3437,7 @@ def cmd_generate(args):
     economy = {}
     if eco_file.exists():
         with open(eco_file) as f:
-            economy = yaml.safe_load(f) or {}
+            economy = yaml.load(f, Loader=_SafeLoader) or {}
 
     lines = []
     lines.append(f"# Procedural History Generation — {config.get('title', 'Untitled')}")
