@@ -1,6 +1,6 @@
 # Persona guide
 
-Persona definitions live in the worldbuilding skill, relative to the plugin root: `skills/worldbuilding/assets/editors/<name>.yaml`. Read the file for each persona you run. Each has `role`, `personality`, `context_requirements`, `checks` (id, severity, method) and `output_format`. The overview and check tables are in `skills/worldbuilding/references/editors.md`.
+Persona definitions live in the worldbuilding skill: `../../worldbuilding/assets/editors/<name>.yaml` (relative to this file). Read the file for each persona you run. Each has `role`, `personality`, `context_requirements`, `checks` (id, severity, method) and `output_format`. The overview and check tables are in `../../worldbuilding/references/editors.md`.
 
 ## Roster, order and cross-links
 

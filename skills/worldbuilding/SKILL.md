@@ -41,7 +41,8 @@ Load the owning skill before writing in its layer.
 | Editorial review of prose against the world | `world-review` |
 | Readability and prose statistics | `prose-check` |
 | Exporting a manuscript as Markdown or HTML | `world-compile` |
-| Interactive 3D/2D viewer (causal graph, timeline, map, trade, life) | `world-visualiser` |
+| Interactive 3D/2D viewer (causal graph, timeline, map, trade, life, gallery) | `world-visualiser` |
+| Generating entity portraits, landscapes, emblems, and scene artwork via fal.ai | `world-art` |
 
 A change usually touches several layers. The consequence sweep (step 3 below) must load the owning skill for every layer touched, not just the one you started in.
 

@@ -1,6 +1,6 @@
 # Worked example (the-lattice)
 
-Illustrative only. It uses real event slugs from `assets/example/the-lattice/` (verify slugs and dates against the files before copying). Traditions here are suggestions, not files in the example.
+Illustrative only. It uses real event slugs from `../../worldbuilding/assets/example-the-lattice/` (verify slugs and dates against the files before copying). Traditions here are suggestions, not files in the example.
 
 ## 1. "The Great Loss" (Mek'vol song and mourning day)
 

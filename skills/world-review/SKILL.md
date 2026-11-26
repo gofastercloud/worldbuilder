@@ -43,7 +43,7 @@ Default order for a multi-persona pass (order matters, earlier results change wh
 
 Then, on demand or for a full pass: plot, dialogue, pacing, prose.
 
-For each persona, read its file from `skills/worldbuilding/assets/editors/<name>.yaml` (relative to the plugin root) and adopt its `role`, `personality`, `checks` and `output_format`. Use the check ids and severities defined there. Run them one at a time. Keep each persona's findings separate; do not merge them mid-pass, and do not let one persona's conclusions leak into another's. If a later persona notices a problem outside its brief, hand it to the right persona's list rather than reporting it twice.
+For each persona, read its file from `../worldbuilding/assets/editors/<name>.yaml` (relative to this skill's directory) and adopt its `role`, `personality`, `checks` and `output_format`. Use the check ids and severities defined there. Run them one at a time. Keep each persona's findings separate; do not merge them mid-pass, and do not let one persona's conclusions leak into another's. If a later persona notices a problem outside its brief, hand it to the right persona's list rather than reporting it twice.
 
 Persona overview and cross-links to world skills: `references/persona-guide.md`.
 

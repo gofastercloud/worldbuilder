@@ -11,13 +11,14 @@ The goal that outranks everything else is internal consistency: every significan
 ## Layout
 
 - `plugin.json` and `.claude-plugin/plugin.json`: plugin manifests (Antigravity native and Claude Code / Cowork). The repo root is the plugin root.
+- `mcp_config.json` and `.mcp.json`: remote Streamable HTTP MCP configs for fal.ai OAuth (`https://mcp.fal.ai/mcp-relay`, no API key required).
 - `skills/`: one folder per skill, each with `SKILL.md` (frontmatter `name` and `description` only) and optional `references/`, `scripts/`, and `assets/`.
-  - `worldbuilding` (core contract, routing table, magic gate), `world-wizard`, `history-and-events`, `geography-and-climate`, `economy-and-trade`, `peoples`, `magic-systems`, `folklore-and-traditions`, `writing`, `world-review`, `world-validate`, `prose-check`, `world-compile`, `world-visualiser`.
+  - `worldbuilding` (core contract, routing table, magic gate), `world-wizard`, `history-and-events`, `geography-and-climate`, `economy-and-trade`, `peoples`, `magic-systems`, `folklore-and-traditions`, `writing`, `world-review`, `world-validate`, `prose-check`, `world-compile`, `world-visualiser`, `world-art`.
   - `skills/worldbuilding/assets/`: entity templates and schemas, editor personas, and `example-the-lattice/`, a complete worked example (magic off) that must always validate with 0 errors and 0 warnings.
 - `skills/world-validate/scripts/validate.py` and `graph.py`: the checker and graph layer (`why`, `impact`, `path`, `unrooted`, `export`). `vendor/yaml/` is a vendored pure-Python PyYAML.
 - `skills/world-compile/scripts/compile.py`, `skills/prose-check/scripts/readability.py`: manuscript export and prose statistics.
-- `skills/world-visualiser/scripts/viz_data.py` and `build_viewer.py`: builds a self-contained single-file HTML viewer (`output/world-viewer.html`) with 3D causal graph, timeline, map, trade, and life views.
-- `commands/`: slash commands for Claude Code / Cowork (`/wb-new`, `/wb-wizard`, `/wb-validate`, `/wb-review`, `/wb-write`, `/wb-story`, `/wb-campaign`, `/wb-compile`, `/wb-readability`, `/wb-visualise`). Antigravity and Codex trigger the same workflows directly via the skills.
+- `skills/world-visualiser/scripts/viz_data.py` and `build_viewer.py`: builds a self-contained single-file HTML viewer (`output/world-viewer.html`, with optional `--embed-images`) featuring 3D causal graph, timeline, map, trade, life, and gallery views with entity artwork.
+- `commands/`: slash commands for Claude Code / Cowork (`/wb-new`, `/wb-wizard`, `/wb-validate`, `/wb-review`, `/wb-write`, `/wb-story`, `/wb-campaign`, `/wb-compile`, `/wb-readability`, `/wb-visualise`, `/wb-art`). Antigravity and Codex trigger the same workflows directly via the skills.
 - `tests/`: pytest suite for all scripts.
 
 ## Rules for changes
