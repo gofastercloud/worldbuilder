@@ -1,23 +1,28 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# WORLDBUILDER — DUAL DESCRIPTION SYSTEM
+# WORLDBUILDER — DESCRIPTION SYSTEM
 # ═══════════════════════════════════════════════════════════════════════════════
-# Every entity gets TWO descriptions, each tuned for a different consumer:
+# Every entity gets TWO required descriptions, plus an OPTIONAL image prompt:
 #
-#   1. human_description
-#      → For readers. Evocative prose styled by prose_style settings.
+#   1. human (required)
+#      → For readers. Evocative prose styled by style.prose settings.
 #      → "Kael stood on the battlements, the scar on his jaw a pale reminder..."
 #
-#   2. machine_description
+#   2. machine (required)
 #      → For the assistant during prose generation. Structured, factual, deterministic.
 #      → Ensures consistency across chapters. No purple prose, just facts.
 #      → "Kael Dawnblade: 22yo male human (Valdrian). 6'1", lean/athletic.
 #         Dark hair, short military cut. Golden-brown eyes (Dawnblade trait).
 #         Scar: left temple to jawline. Wears: battered Silver Order surcoat
-#         (deep blue, winged sword emblem) over brown leather armor..."
+#         (deep blue, winged sword emblem) over brown leather armour..."
 #
-# The machine_description is the SOURCE OF TRUTH. The human
-# description is DERIVED from it + style settings. This means you write
-# the facts once, and the system adapts them to context.
+#   3. image_prompt (optional)
+#      → For visual art generation via the world-art skill (fal.ai OAuth MCP).
+#      → Derived from machine + style.visual settings and checked against world_flags.
+#      → Concise, visual-only subject description (composition, lighting, materials).
+#
+# The machine description is the SOURCE OF TRUTH. Both human and image_prompt
+# are DERIVED from it + style settings. This means you write the facts once,
+# and the system adapts them to prose and artwork.
 #
 # These fields go in each entity's YAML frontmatter under 'descriptions:'.
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -35,7 +40,12 @@
 #   human: |
 #     Kael stood on the wall-walk, the wind catching the frayed hem of his
 #     surcoat. The Silver Order's winged blade, once bright silver thread,
-#     had faded to gray...
+#     had faded to grey...
+#   image_prompt: >
+#     Three-quarter portrait of a weathered young human soldier on stone
+#     battlements, lean athletic build, short dark hair, golden-brown eyes,
+#     thin pale scar from left temple to jaw, battered deep blue linen surcoat
+#     with faded silver winged sword emblem over brown leather armour.
 
 # ─── MACHINE DESCRIPTION SCHEMAS BY ENTITY TYPE ──────────────────────────────
 

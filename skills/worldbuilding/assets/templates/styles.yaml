@@ -3,7 +3,8 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 # Top-level style configuration that influences ALL generated content:
 #   - Prose generation (voice, tone, vocabulary, pacing)
-#   - Entity descriptions (human and machine variants)
+#   - Entity descriptions (human, machine, and optional image_prompt variants)
+#   - Visual art generation (art direction, palette, lighting via world-art)
 #
 # Style settings live in project.yaml under 'style:' and cascade:
 #   project style → per-book overrides → per-chapter overrides
@@ -108,3 +109,44 @@ prose_style:
       values: [minimal, moderate, deep]
       default: moderate
       description: "How much of POV character's thoughts appear on page"
+
+# ─── VISUAL STYLE ─────────────────────────────────────────────────────────────
+# Controls how the world-art skill styles generated artwork via fal.ai MCP.
+# Full prompt suffixes, negative prompts and aspect ratios live in
+# skills/world-art/references/style-presets.md.
+visual_style:
+  preset:
+    type: enum
+    values:
+      - painterly-fantasy      # Oil-painted fantasy concept art, rich brushwork
+      - dark-ink               # High-contrast ink wash and woodcut linework
+      - watercolour-storybook  # Soft hand-painted watercolour with ink outlines
+      - cinematic-realism      # Grounded live-action 35mm film still aesthetic
+      - concept-art            # Clean studio entertainment concept art
+      - scifi-technical        # Hard-surface industrial sci-fi illustration
+      - retro-pulp             # Vintage painted mid-century paperback cover
+      - woodblock-print        # Carved block print, flat mineral pigments
+      - graphic-novel          # Crisp ligne claire inked comic art
+      - heraldic-illuminated   # Medieval manuscript illumination and heraldry
+      - custom                 # Project-defined prompt_suffix and negative_prompt
+    default: painterly-fantasy
+
+  palette:
+    type: string
+    default: ""
+    description: "Project-wide colour palette guidance (e.g. 'muted slate blue, ochre, weathered bronze')"
+
+  lighting:
+    type: string
+    default: ""
+    description: "Default lighting mood across generated scenes (e.g. 'overcast northern daylight')"
+
+  prompt_suffix:
+    type: string
+    default: ""
+    description: "Additional style tokens appended to every entity image_prompt (required for custom preset)"
+
+  negative_prompt:
+    type: string
+    default: ""
+    description: "Project-wide visual exclusions combined with preset and world_flags exclusions"

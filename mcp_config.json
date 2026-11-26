@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "fal": {
+      "url": "https://mcp.fal.ai/mcp-relay"
+    }
+  }
+}

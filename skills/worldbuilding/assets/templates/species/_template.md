@@ -43,6 +43,7 @@ descriptions:
     physical_appearance: ""
     distinctive_features: ""
   human: ""
+  image_prompt: ""
 
 tags: []
 ---

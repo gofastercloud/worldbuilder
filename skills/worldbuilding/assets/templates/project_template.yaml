@@ -23,7 +23,7 @@ target_word_count: 80000    # target for the full manuscript
 chapter_target_words: 3000  # target per chapter
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# STYLE — controls prose generation
+# STYLE — controls prose and visual art generation
 # ═══════════════════════════════════════════════════════════════════════════════
 # See templates/styles.yaml for full documentation and all options.
 style:
@@ -36,6 +36,12 @@ style:
     profanity: invented-only
     content_rating: adult
     sensory_emphasis: [sight, sound, smell]
+  visual:
+    preset: painterly-fantasy  # painterly-fantasy | dark-ink | watercolour-storybook | cinematic-realism | concept-art | scifi-technical | retro-pulp | woodblock-print | graphic-novel | heraldic-illuminated | custom
+    palette: ""                # project-wide colour palette guidance
+    lighting: ""               # default lighting mood (e.g. "overcast northern light")
+    prompt_suffix: ""          # optional extra style suffix appended to image prompts
+    negative_prompt: ""        # extra exclusions combined with preset and world_flags exclusions
 
 # World settings. Short summary only: the working calendar and eras (prefix, sort_order)
 # live in world/history/calendar.yaml, which the validator reads.

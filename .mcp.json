@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "fal": {
+      "type": "http",
+      "url": "https://mcp.fal.ai/mcp-relay"
+    }
+  }
+}

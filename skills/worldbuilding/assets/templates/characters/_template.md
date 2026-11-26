@@ -48,7 +48,7 @@ voice:
   dialect: ""              # speech register (e.g. "formal court speech", "rural colloquial")
 
 # ─── DESCRIPTIONS ─────────────────────────────────────────────────────────────
-# Descriptions: machine (source truth), human (styled prose)
+# Descriptions: machine (source truth), human (styled prose), image_prompt (optional visual art)
 descriptions:
   machine:
     physique: ""
@@ -57,6 +57,7 @@ descriptions:
     voice: ""
     demeanor: ""
   human: ""
+  image_prompt: ""
 
 tags: []
 ---

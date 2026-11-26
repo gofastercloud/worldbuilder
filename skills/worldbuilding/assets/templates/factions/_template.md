@@ -41,6 +41,7 @@ descriptions:
     architecture: ""
     atmosphere: ""
   human: ""
+  image_prompt: ""
 
 first_appearance: ""
 status: active | disbanded | hidden | rising | declining

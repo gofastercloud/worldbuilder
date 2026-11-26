@@ -59,6 +59,7 @@ descriptions:
   machine:
     scene: ""
   human: ""
+  image_prompt: ""
 
 tags: []
 ---

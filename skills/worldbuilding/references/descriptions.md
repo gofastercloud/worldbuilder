@@ -1,24 +1,29 @@
 # Description System Reference
 
-Dual-description architecture: machine (facts), human (prose).
+Description architecture: `machine` (source facts), `human` (styled prose), and optional `image_prompt` (visual art).
 
-## The Two Descriptions
+## The Description Variants
 
-Every entity MUST have descriptions block with two variants. The system works because:
+Every entity MUST have a `descriptions` block with `machine` and `human`, and MAY include an optional `image_prompt`:
 
-1. **machine_description** = SOURCE OF TRUTH
+1. **machine** (required) = SOURCE OF TRUTH
    - Structured, factual, deterministic
    - The assistant reads this during generation for consistency
    - Never styled, no flowery language
    - Written once, reused everywhere
 
-2. **human_description** = READER-FACING PROSE
-   - Derived from machine_description + prose_style settings
+2. **human** (required) = READER-FACING PROSE
+   - Derived from `machine` + `style.prose` settings
    - Evocative, styled according to genre/tone
    - What appears in published work
    - Variable per style context
 
-**Example:** A character's machine_description stays identical. But in a literary novel it becomes flowing prose, in a cozy fantasy becomes warm narration, in a dark grimdark becomes stark description. All from the same source facts.
+3. **image_prompt** (optional) = VISUAL ART PROMPT
+   - Derived from `machine` + `style.visual` settings (and `heraldry` where present)
+   - Used by the `world-art` skill to generate portraits, landscapes, emblems, items and scenes via the `fal` OAuth MCP server
+   - Must stay visual-only (composition, materials, lighting, distinguishing marks) and obey `world_flags` (no magic if `world_flags.magic.present` is `false`, no disallowed technology)
+
+**Example:** A character's `machine` description stays identical. From it, a literary novel produces flowing prose, a cozy fantasy produces warm narration, and `world-art` produces a consistent portrait prompt — all from the same source facts.
 
 ## YAML Frontmatter Structure
 
@@ -33,7 +38,8 @@ descriptions:
   human: |
     Prose paragraph describing the entity.
     Can span multiple sentences. Styled by
-    prose_style settings from project.yaml.
+    style.prose settings from project.yaml.
+  image_prompt: ""  # optional; visual-only subject prompt for world-art
 ```
 
 ## Character Machine Description
@@ -163,21 +169,27 @@ All derived from the same machine_description, styled differently.
 
 | Situation | Use |
 |-----------|-----|
-| Generating prose or dialogue | machine_description |
-| Proofreader/editor reviewing text | human_description |
-| World-building document | machine_description |
-| Published novel text | human_description |
-| Character sheet for players | machine_description |
+| Generating prose or dialogue | `descriptions.machine` |
+| Proofreader/editor reviewing text | `descriptions.human` |
+| World-building document | `descriptions.machine` |
+| Published novel text | `descriptions.human` |
+| Character sheet for players | `descriptions.machine` |
+| Generating artwork (`world-art`) | `descriptions.image_prompt` (derived from `descriptions.machine` + `style.visual`) |
 
 ## Style System Integration
 
-**machine_description** → never changes, pure facts
+**`descriptions.machine`** → never changes, pure facts
 
-**human_description** ← derived using prose_style settings:
-- vocabulary.complexity affects word choice
-- prose_style.preset affects voice
-- content_rating affects what can be described
-- sensory_emphasis determines which senses featured
+**`descriptions.human`** ← derived using `style.prose` settings:
+- `vocabulary.complexity` affects word choice
+- `style.prose.preset` affects voice
+- `content_rating` affects what can be described
+- `sensory_emphasis` determines which senses are featured
+
+**`descriptions.image_prompt`** ← derived using `style.visual` settings (see `skills/world-art/references/style-presets.md`):
+- `style.visual.preset` supplies the art direction suffix and default negative prompt
+- `style.visual.palette` and `style.visual.lighting` keep colour and mood consistent across entities
+- `world_flags` filter out disallowed magic or technology
 
 ## Maintenance Tips
 

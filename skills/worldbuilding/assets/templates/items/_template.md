@@ -15,6 +15,7 @@ descriptions:
     appearance: ""
     properties: ""
   human: ""
+  image_prompt: ""
 
 tags: []
 ---

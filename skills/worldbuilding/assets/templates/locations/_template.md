@@ -79,6 +79,7 @@ descriptions:
     atmosphere: ""
     notable_features: ""
   human: ""
+  image_prompt: ""
 
 first_appearance: ""
 tags: []
