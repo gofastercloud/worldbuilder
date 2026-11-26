@@ -24,8 +24,9 @@ mcp = [
     "mcp[cli]>=1.0",
 ]
 dev = [
-    "ruff",
-    "pytest",
+    "ruff==0.15.7",
+    "pytest==9.0.2",
+    "pyright==1.1.407",
 ]
 
 [project.scripts]
@@ -33,7 +34,7 @@ worldbuilder = "scripts.worldbuilder:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["scripts", "webapp"]
+pythonpath = ["scripts", "webapp", "mcp_server"]
 
 [tool.ruff]
 line-length = 120
@@ -41,3 +42,10 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
+
+[tool.pyright]
+include = ["scripts", "mcp_server", "webapp", "tests"]
+extraPaths = ["scripts", "webapp", "mcp_server"]
+pythonVersion = "3.10"
+venvPath = "."
+venv = ".venv"

@@ -191,6 +191,7 @@ class TestParseFrontmatter:
         f = tmp_path / "test.md"
         f.write_text("---\nname: Test\nrole: protagonist\n---\n\n## Notes\nHello.\n")
         meta, body = parse_frontmatter(f)
+        assert meta is not None
         assert meta["name"] == "Test"
         assert meta["role"] == "protagonist"
         assert "Hello" in body

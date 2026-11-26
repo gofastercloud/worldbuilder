@@ -2,15 +2,37 @@
    WorldBuilder Web App — Frontend
    ═══════════════════════════════════════════════════════════════════════════ */
 
+// ─── Escaping ─────────────────────────────────────────────────────────────
+// Entity files can come from anywhere (shared worlds, LLM-generated content),
+// so every data value that goes into innerHTML must pass through one of these.
+
+/** Escape a value for HTML text or a double-quoted attribute. */
+function esc(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Encode a value as a JS literal for an inline handler: onclick="fn(${jsArg(x)})". */
+function jsArg(value) {
+  return esc(JSON.stringify(value ?? ""));
+}
+
+/** Allow only http(s), root-relative and fragment URLs; anything else becomes "#". */
+function safeUrl(url) {
+  const u = String(url ?? "").trim();
+  return /^(https?:\/\/|\/(?!\/)|#)/i.test(u) ? u : "#";
+}
+
 // ─── Lightweight Markdown → HTML ──────────────────────────────────────────
 
 function renderMarkdown(src) {
   if (!src) return "";
-  // Escape HTML entities to prevent XSS
-  let text = src
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  // Escape HTML entities (including quotes) to prevent XSS
+  let text = esc(src);
 
   // Ensure headings are always their own block by inserting blank lines
   // before and after any line starting with #
@@ -67,7 +89,9 @@ function inlineMarkdown(text) {
     .replace(/\*(.+?)\*/g, "<em>$1</em>")                     // *italic*
     .replace(/_(.+?)_/g, "<em>$1</em>")                        // _italic_
     .replace(/`(.+?)`/g, "<code>$1</code>")                    // `code`
-    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>');   // [link](url)
+    // [link](url) — text is already escaped; the URL is restricted to safe schemes
+    .replace(/\[(.+?)\]\((.+?)\)/g, (_, label, url) =>
+      `<a href="${safeUrl(url)}" rel="noopener noreferrer">${label}</a>`);
 }
 
 // ─── State ────────────────────────────────────────────────────────────────
@@ -135,11 +159,11 @@ async function loadProjects() {
   }
 
   grid.innerHTML = projects.map(p => `
-    <div class="project-card" onclick="openProject('${p.slug}')">
-      <h3>${p.title}</h3>
+    <div class="project-card" onclick="openProject(${jsArg(p.slug)})">
+      <h3>${esc(p.title)}</h3>
       <div class="meta">
-        <span class="badge">${p.genre}</span>
-        <span class="badge badge-outline">${p.type}</span>
+        <span class="badge">${esc(p.genre)}</span>
+        <span class="badge badge-outline">${esc(p.type)}</span>
       </div>
     </div>
   `).join("");
@@ -185,8 +209,8 @@ function buildEntityNav(stats) {
 
   for (const [type, count] of Object.entries(stats)) {
     const icon = ENTITY_ICONS[type] || "📦";
-    html += `<button class="entity-nav-btn" data-type="${type}" onclick="setEntityType('${type}')">
-      ${icon} ${type} <span class="count">${count}</span></button>`;
+    html += `<button class="entity-nav-btn" data-type="${esc(type)}" onclick="setEntityType(${jsArg(type)})">
+      ${icon} ${esc(type)} <span class="count">${esc(count)}</span></button>`;
   }
   nav.innerHTML = html;
 }
@@ -254,20 +278,20 @@ function renderEntityGrid(entities) {
   grid.innerHTML = filtered.map(e => {
     const icon = ENTITY_ICONS[e.type] || "📦";
     const status = e.meta?.status || "";
-    const statusBadge = status ? `<span class="badge ${status === 'dead' ? 'badge-red' : status === 'alive' ? 'badge-green' : 'badge-muted'}">${status}</span>` : "";
-    const species = e.meta?.species ? `<span>${e.meta.species}</span>` : "";
-    const metaLine = [species, e.meta?.role, e.meta?.type].filter(Boolean).join(" · ");
+    const statusBadge = status ? `<span class="badge ${status === 'dead' ? 'badge-red' : status === 'alive' ? 'badge-green' : 'badge-muted'}">${esc(status)}</span>` : "";
+    const species = e.meta?.species ? `<span>${esc(e.meta.species)}</span>` : "";
+    const metaLine = [species, esc(e.meta?.role || ""), esc(e.meta?.type || "")].filter(Boolean).join(" · ");
 
     const cardImage = e.image_url
-      ? `<div class="entity-card-image" style="background-image:url('${e.image_url}');background-size:cover;background-position:center"></div>`
+      ? `<div class="entity-card-image" style="background-image:url(${jsArg(safeUrl(e.image_url))});background-size:cover;background-position:center"></div>`
       : `<div class="entity-card-image">${icon}</div>`;
 
-    return `<div class="entity-card" onclick="openEntity('${e.type}', '${e.slug}')">
+    return `<div class="entity-card" onclick="openEntity(${jsArg(e.type)}, ${jsArg(e.slug)})">
       ${cardImage}
       <div class="entity-card-info">
-        <h3>${e.name}</h3>
+        <h3>${esc(e.name)}</h3>
         <div class="entity-card-meta">
-          <span class="badge badge-muted">${e.type}</span>
+          <span class="badge badge-muted">${esc(e.type)}</span>
           ${statusBadge}
         </div>
         ${metaLine ? `<div class="entity-card-meta" style="margin-top:4px">${metaLine}</div>` : ""}
@@ -313,7 +337,7 @@ async function openEntity(type, slug) {
         else if (Array.isArray(val)) display = val.join(", ");
         else display = JSON.stringify(val, null, 1);
       }
-      html += `<div class="field"><span class="field-label">${key}</span><span class="field-value">${display}</span></div>`;
+      html += `<div class="field"><span class="field-label">${esc(key)}</span><span class="field-value">${esc(display)}</span></div>`;
     }
     html += `</div>`;
   }
@@ -327,7 +351,7 @@ async function openEntity(type, slug) {
   if (descs.machine) {
     html += `<div class="panel-section"><h4>Machine Description</h4>`;
     for (const [k, v] of Object.entries(descs.machine)) {
-      if (v) html += `<div class="field"><span class="field-label">${k}</span><span class="field-value">${v}</span></div>`;
+      if (v) html += `<div class="field"><span class="field-label">${esc(k)}</span><span class="field-value">${esc(v)}</span></div>`;
     }
     html += `</div>`;
   }
@@ -336,11 +360,11 @@ async function openEntity(type, slug) {
   const heraldry = meta.heraldry || {};
   if (heraldry.sigil || heraldry.motto) {
     html += `<div class="panel-section"><h4>Heraldry</h4>`;
-    if (heraldry.sigil?.description) html += `<div class="field"><span class="field-label">Sigil</span><span class="field-value">${heraldry.sigil.description}</span></div>`;
-    if (heraldry.sigil?.blazon) html += `<div class="field"><span class="field-label">Blazon</span><span class="field-value">${heraldry.sigil.blazon}</span></div>`;
-    if (heraldry.motto) html += `<div class="field"><span class="field-label">Motto</span><span class="field-value">"${heraldry.motto}"</span></div>`;
+    if (heraldry.sigil?.description) html += `<div class="field"><span class="field-label">Sigil</span><span class="field-value">${esc(heraldry.sigil.description)}</span></div>`;
+    if (heraldry.sigil?.blazon) html += `<div class="field"><span class="field-label">Blazon</span><span class="field-value">${esc(heraldry.sigil.blazon)}</span></div>`;
+    if (heraldry.motto) html += `<div class="field"><span class="field-label">Motto</span><span class="field-value">"${esc(heraldry.motto)}"</span></div>`;
     if (heraldry.image_prompt) {
-      html += `<div class="field"><span class="field-label">Heraldry Prompt</span><span class="field-value" style="font-family:var(--font-mono);font-size:12px">${heraldry.image_prompt}</span></div>`;
+      html += `<div class="field"><span class="field-label">Heraldry Prompt</span><span class="field-value" style="font-family:var(--font-mono);font-size:12px">${esc(heraldry.image_prompt)}</span></div>`;
     }
     html += `</div>`;
   }
@@ -352,8 +376,8 @@ async function openEntity(type, slug) {
     for (const r of rels) {
       const target = r.entity || r.character || r.name || "?";
       html += `<div class="field">
-        <span class="field-label">${r.type || "related"}</span>
-        <span class="field-value"><span class="panel-link" onclick="navigateToEntity('${target}')">${target}</span> ${r.description || ""}</span>
+        <span class="field-label">${esc(r.type || "related")}</span>
+        <span class="field-value"><span class="panel-link" onclick="navigateToEntity(${jsArg(target)})">${esc(target)}</span> ${esc(r.description || "")}</span>
       </div>`;
     }
     html += `</div>`;
@@ -367,8 +391,8 @@ async function openEntity(type, slug) {
       const people = Array.isArray(val) ? val : [val];
       for (const p of people.filter(Boolean)) {
         html += `<div class="field">
-          <span class="field-label">${rel}</span>
-          <span class="field-value"><span class="panel-link" onclick="navigateToEntity('${p}')">${p}</span></span>
+          <span class="field-label">${esc(rel)}</span>
+          <span class="field-value"><span class="panel-link" onclick="navigateToEntity(${jsArg(p)})">${esc(p)}</span></span>
         </div>`;
       }
     }
@@ -393,7 +417,7 @@ async function openEntity(type, slug) {
   const links = document.getElementById("panel-links");
   const refs = findCrossRefs(meta);
   links.innerHTML = refs.map(r =>
-    `<span class="panel-link" onclick="navigateToEntity('${r}')">${r}</span>`
+    `<span class="panel-link" onclick="navigateToEntity(${jsArg(r)})">${esc(r)}</span>`
   ).join("");
 
   // Open panel
@@ -742,16 +766,16 @@ async function loadFamilies() {
     const membersHtml = fam.members.map(m => {
       const isDead = m.status === "dead";
       const icon = isDead ? "✝" : "●";
-      return `<span class="family-member ${isDead ? 'dead' : ''}" onclick="openEntity('character','${m.slug}')">
-        ${icon} ${m.name} <span style="font-size:11px;color:var(--text-2)">${m.role || ""}</span>
+      return `<span class="family-member ${isDead ? 'dead' : ''}" onclick="openEntity('character', ${jsArg(m.slug)})">
+        ${icon} ${esc(m.name)} <span style="font-size:11px;color:var(--text-2)">${esc(m.role || "")}</span>
       </span>`;
     }).join("");
 
     return `<div class="family-tree-card">
-      <h3>👑 ${fam.lineage_name}</h3>
-      ${heraldryLine ? `<div class="family-heraldry">${heraldryLine}</div>` : ""}
+      <h3>👑 ${esc(fam.lineage_name)}</h3>
+      ${heraldryLine ? `<div class="family-heraldry">${esc(heraldryLine)}</div>` : ""}
       <div style="margin-bottom:8px">
-        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); openEntity('lineage','${fam.lineage_slug}')">🖼️ View & Generate Image</button>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); openEntity('lineage', ${jsArg(fam.lineage_slug)})">🖼️ View & Generate Image</button>
       </div>
       <div>${membersHtml || '<span style="color:var(--text-2)">No members linked</span>'}</div>
     </div>`;
@@ -779,7 +803,7 @@ async function loadLanguages() {
 
   container.innerHTML = Object.entries(families).map(([fam, members]) => {
     const membersHtml = members.map(l => {
-      const statusClass = l.status || "living";
+      const statusClass = esc(l.status || "living");
       const statusIcon = { living: "●", endangered: "⚠", dead: "✝", extinct: "✝", proto: "◯" }[l.status] || "●";
 
       // Intelligibility bars
@@ -787,16 +811,16 @@ async function loadLanguages() {
         const score = i.score || 0;
         const pct = Math.round(score * 100);
         return `<div style="display:flex;align-items:center;gap:6px;font-size:12px;margin-top:4px">
-          <span style="color:var(--text-2);min-width:80px">${i.language}</span>
+          <span style="color:var(--text-2);min-width:80px">${esc(i.language)}</span>
           <div class="intelligibility-bar"><div class="intelligibility-fill" style="width:${pct}%"></div></div>
           <span style="color:var(--text-2)">${pct}%</span>
         </div>`;
       }).join("");
 
-      return `<div class="lang-node" onclick="openEntity('language','${l.slug}')" style="display:block;margin:8px 0">
+      return `<div class="lang-node" onclick="openEntity('language', ${jsArg(l.slug)})" style="display:block;margin:8px 0">
         <div style="display:flex;align-items:center;gap:6px">
           <span class="lang-status ${statusClass}">${statusIcon}</span>
-          <strong>${l.name}</strong>
+          <strong>${esc(l.name)}</strong>
           ${l.special?.lingua_franca ? '<span class="badge badge-muted" style="font-size:10px">lingua franca</span>' : ''}
           ${l.special?.magical_properties ? '<span class="badge badge-purple" style="font-size:10px">magical</span>' : ''}
         </div>
@@ -805,7 +829,7 @@ async function loadLanguages() {
     }).join("");
 
     return `<div class="lang-family">
-      <h3>🗣️ ${fam}</h3>
+      <h3>🗣️ ${esc(fam)}</h3>
       ${membersHtml}
     </div>`;
   }).join("");
@@ -831,9 +855,9 @@ function setupSearch() {
         dropdown.innerHTML = `<div class="search-item" style="color:var(--text-2)">No results</div>`;
       } else {
         dropdown.innerHTML = results.slice(0, 10).map(r => `
-          <div class="search-item" onclick="openEntity('${r.type}','${r.slug}'); document.getElementById('search-results').classList.remove('active')">
-            <span>${ENTITY_ICONS[r.type] || '📦'} ${r.name}</span>
-            <span class="badge badge-muted">${r.type}</span>
+          <div class="search-item" onclick="openEntity(${jsArg(r.type)}, ${jsArg(r.slug)}); document.getElementById('search-results').classList.remove('active')">
+            <span>${ENTITY_ICONS[r.type] || '📦'} ${esc(r.name)}</span>
+            <span class="badge badge-muted">${esc(r.type)}</span>
           </div>
         `).join("");
       }
@@ -938,7 +962,7 @@ function renderWizardStep() {
     if (f.type === "text") {
       html += `<div class="form-group">
         <label>${f.label}${f.required ? ' *' : ''}</label>
-        <input type="text" id="${f.id}" value="${val}" placeholder="${f.placeholder || ''}">
+        <input type="text" id="${f.id}" value="${esc(val)}" placeholder="${esc(f.placeholder || '')}">
       </div>`;
     } else if (f.type === "choice") {
       html += `<div class="form-group">
@@ -1047,7 +1071,7 @@ function buildImageSection(entityType, entitySlug, meta) {
     // Show the prompt
     html += `<div class="image-prompt-preview">
       <span class="field-label">Prompt</span>
-      <span class="field-value" style="font-family:var(--font-mono); font-size:11px">${imagePrompt}</span>
+      <span class="field-value" style="font-family:var(--font-mono); font-size:11px">${esc(imagePrompt)}</span>
     </div>`;
 
     // Generate button
@@ -1072,11 +1096,11 @@ function buildImageSection(entityType, entitySlug, meta) {
       </div>`;
       html += `<div class="image-actions">
         <button class="btn btn-primary btn-sm" id="btn-generate-image"
-          onclick="generateEntityImage('${entityType}', '${entitySlug}')">
+          onclick="generateEntityImage(${jsArg(entityType)}, ${jsArg(entitySlug)})">
           🖼️ Generate Image
         </button>
         <button class="btn btn-ghost btn-sm" id="btn-regenerate-image" style="display:none"
-          onclick="generateEntityImage('${entityType}', '${entitySlug}', true)">
+          onclick="generateEntityImage(${jsArg(entityType)}, ${jsArg(entitySlug)}, true)">
           🔄 Regenerate
         </button>
         <span id="image-gen-status" class="image-status"></span>
@@ -1093,7 +1117,7 @@ function buildImageSection(entityType, entitySlug, meta) {
 function buildVoiceSection(entityType, entitySlug) {
   if (entityType !== "character") return "";
   // Return a placeholder container; populated async after panel renders
-  return `<div id="voice-player-section" data-entity-type="${entityType}" data-entity-slug="${entitySlug}"></div>`;
+  return `<div id="voice-player-section" data-entity-type="${esc(entityType)}" data-entity-slug="${esc(entitySlug)}"></div>`;
 }
 
 async function checkEntityVoice(entityType, entitySlug) {
@@ -1122,13 +1146,13 @@ function renderVoicePlayer(container, entitySlug, voiceData) {
   let html = `<div class="panel-section"><h4>Voice</h4><div class="voice-player">`;
 
   // Editable text area — users can type custom lines or use the default
-  html += `<textarea class="voice-text-input" id="voice-text-input" rows="3" placeholder="Enter a line of dialogue...">${sampleText}</textarea>`;
+  html += `<textarea class="voice-text-input" id="voice-text-input" rows="3" placeholder="Enter a line of dialogue...">${esc(sampleText)}</textarea>`;
   html += `<div class="voice-actions">`;
 
   if (cached && audioUrl) {
-    html += `<button class="voice-play-btn" id="voice-play-btn" onclick="playVoice('${entitySlug}', '${audioUrl}')">&#9654; Play Voice</button>`;
+    html += `<button class="voice-play-btn" id="voice-play-btn" onclick="playVoice(${jsArg(entitySlug)}, ${jsArg(safeUrl(audioUrl))})">&#9654; Play Voice</button>`;
   } else {
-    html += `<button class="voice-play-btn" id="voice-play-btn" onclick="generateAndPlayVoice('${entitySlug}')">&#9654; Play Voice</button>`;
+    html += `<button class="voice-play-btn" id="voice-play-btn" onclick="generateAndPlayVoice(${jsArg(entitySlug)})">&#9654; Play Voice</button>`;
   }
 
   html += `<span id="voice-status" class="voice-status"></span>`;
@@ -1144,7 +1168,7 @@ function renderVoicePlayer(container, entitySlug, voiceData) {
     textarea.addEventListener("input", () => {
       const btn = document.getElementById("voice-play-btn");
       if (btn) {
-        btn.setAttribute("onclick", `generateAndPlayVoice('${entitySlug}')`);
+        btn.setAttribute("onclick", `generateAndPlayVoice(${JSON.stringify(entitySlug)})`);
         btn.innerHTML = "&#9654; Generate & Play";
       }
     });
@@ -1218,7 +1242,7 @@ async function generateAndPlayVoice(entitySlug) {
     if (data.status === "completed" && data.url) {
       if (statusEl) { statusEl.className = "voice-status"; statusEl.textContent = ""; }
       btn.disabled = false;
-      btn.setAttribute("onclick", `playVoice('${entitySlug}', '${data.url}')`);
+      btn.setAttribute("onclick", `playVoice(${JSON.stringify(entitySlug)}, ${JSON.stringify(safeUrl(data.url))})`);
       playVoice(entitySlug, data.url);
       return;
     }
@@ -1256,7 +1280,7 @@ function pollVoiceJob(jobId, entitySlug) {
         if (statusEl) { statusEl.className = "voice-status"; statusEl.textContent = ""; }
         if (btn) {
           btn.disabled = false;
-          btn.setAttribute("onclick", `playVoice('${entitySlug}', '${url}')`);
+          btn.setAttribute("onclick", `playVoice(${JSON.stringify(entitySlug)}, ${JSON.stringify(safeUrl(url))})`);
         }
         playVoice(entitySlug, url);
       } else if (data.status === "failed") {
@@ -1492,14 +1516,14 @@ function showImageToast(job) {
   const name = job.entity_name || job.entity_slug;
   const icon = ENTITY_ICONS[job.entity_type] || "📦";
   if (job.status === "complete") {
-    const thumb = job.url ? `<img src="${job.url}" class="toast-thumb" />` : "";
+    const thumb = job.url ? `<img src="${esc(safeUrl(job.url))}" class="toast-thumb" />` : "";
     showToast(
-      `<div class="toast-img-row">${thumb}<div>${icon} <strong>${name}</strong><br><span class="toast-sub">Image ready — click to view</span></div></div>`,
+      `<div class="toast-img-row">${thumb}<div>${icon} <strong>${esc(name)}</strong><br><span class="toast-sub">Image ready — click to view</span></div></div>`,
       "success", 8000
     );
   } else if (job.status === "failed") {
     showToast(
-      `${icon} <strong>${name}</strong> — image generation failed: ${job.error || "unknown error"}`,
+      `${icon} <strong>${esc(name)}</strong> — image generation failed: ${esc(job.error || "unknown error")}`,
       "error", 8000
     );
   }
@@ -1624,11 +1648,11 @@ async function pgUpdateStatus() {
     const backendType = s.backend_type || s.backend || "unknown";
     const model = s.model || "unknown";
     if (s.model_loaded || s.comfyui_available) {
-      el.innerHTML = `<span class="badge badge-success">✓ ${backendType} — ${model}</span>`;
+      el.innerHTML = `<span class="badge badge-success">✓ ${esc(backendType)} — ${esc(model)}</span>`;
     } else if (s.mlx_available || s.diffusers_available) {
       el.innerHTML = `<span class="badge badge-warning">Model loading…</span>`;
     } else {
-      el.innerHTML = `<span class="badge badge-error">Unavailable: ${s.error || "Backend not configured"}</span>`;
+      el.innerHTML = `<span class="badge badge-error">Unavailable: ${esc(s.error || "Backend not configured")}</span>`;
     }
   } catch {
     el.innerHTML = `<span class="badge badge-error">Backend offline</span>`;
@@ -1661,7 +1685,7 @@ async function pgGenerate() {
     const job = await res.json();
 
     if (job.error) {
-      area.innerHTML = `<div class="pg-placeholder"><span class="placeholder-icon">❌</span><p>${job.error}</p></div>`;
+      area.innerHTML = `<div class="pg-placeholder"><span class="placeholder-icon">❌</span><p>${esc(job.error)}</p></div>`;
       btn.disabled = false;
       btn.textContent = "Generate";
       return;
@@ -1680,7 +1704,7 @@ async function pgGenerate() {
     pgPollJob(job.job_id, btn);
 
   } catch (e) {
-    area.innerHTML = `<div class="pg-placeholder"><span class="placeholder-icon">❌</span><p>Request failed: ${e.message}</p></div>`;
+    area.innerHTML = `<div class="pg-placeholder"><span class="placeholder-icon">❌</span><p>Request failed: ${esc(e.message)}</p></div>`;
     btn.disabled = false;
     btn.textContent = "Generate";
   }
@@ -1708,7 +1732,7 @@ function pgPollJob(jobId, btn) {
       } else if (job.status === "failed") {
         clearInterval(interval);
         const area = document.getElementById("pg-image-area");
-        area.innerHTML = `<div class="pg-placeholder"><span class="placeholder-icon">❌</span><p>${job.error || "Generation failed"}</p></div>`;
+        area.innerHTML = `<div class="pg-placeholder"><span class="placeholder-icon">❌</span><p>${esc(job.error || "Generation failed")}</p></div>`;
         btn.disabled = false;
         btn.textContent = "Generate";
       } else {
@@ -1730,7 +1754,7 @@ function pgUpdateProgress(job) {
   const pct = total > 0 ? Math.round((current / total) * 100) : 0;
   const label = total > 0 ? `Step ${current} / ${total}` : "Starting…";
   const previewImg = job.preview_url && current > 0
-    ? `<img src="${job.preview_url}?t=${Date.now()}" class="pg-result-img" style="opacity:0.7" />`
+    ? `<img src="${esc(safeUrl(job.preview_url))}?t=${Date.now()}" class="pg-result-img" style="opacity:0.7" />`
     : `<span class="placeholder-icon">⏳</span>`;
   area.innerHTML = `
     <div class="pg-placeholder" style="position:relative">
@@ -1748,11 +1772,11 @@ function pgShowResult(job) {
   const area = document.getElementById("pg-image-area");
   // The playground images use _playground project slug, so URL is /api/project/_playground/images/...
   const url = job.url;
-  area.innerHTML = `<img src="${url}" class="pg-result-img" onclick="window.open('${url}', '_blank')" title="Click to open full size" />`;
+  area.innerHTML = `<img src="${esc(safeUrl(url))}" class="pg-result-img" onclick="window.open(${jsArg(safeUrl(url))}, '_blank')" title="Click to open full size" />`;
 
   const info = document.getElementById("pg-image-info");
   info.style.display = "block";
-  info.innerHTML = `<span class="hint">Seed: ${job.seed || "?"} · ${job.cached ? "Cached" : "Generated"}</span>`;
+  info.innerHTML = `<span class="hint">Seed: ${esc(job.seed || "?")} · ${job.cached ? "Cached" : "Generated"}</span>`;
 
   // Add to history
   pgHistory.unshift({ url, prompt: job.prompt, seed: job.seed, style: job.style || pgSelectedStyle });
@@ -1771,8 +1795,8 @@ function pgRenderHistory() {
   grid.innerHTML = pgHistory.map(h => {
     const icon = styleIcons[h.style] || "⚙️";
     return `
-    <div class="pg-history-item" onclick="window.open('${h.url}', '_blank')" title="${(h.prompt || '').substring(0, 80)}">
-      <img src="${h.url}" />
+    <div class="pg-history-item" onclick="window.open(${jsArg(safeUrl(h.url))}, '_blank')" title="${esc((h.prompt || '').substring(0, 80))}">
+      <img src="${esc(safeUrl(h.url))}" />
       <span class="pg-history-badge">${icon}</span>
     </div>`;
   }).join("");

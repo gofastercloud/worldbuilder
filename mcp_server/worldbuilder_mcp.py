@@ -7,20 +7,26 @@ exploring timelines/geography/families, and generating writing prompts.
 Runs via stdio transport for local Claude Code / Cowork integration.
 """
 
+import asyncio
 import json
 import re
 import subprocess
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, Optional
 
 import yaml
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
 # ─── Constants ──────────────────────────────────────────────────────────────
 
 SERVER_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(SERVER_ROOT / "scripts"))
+
+from entity_io import fill_name_placeholders, parse_frontmatter, slugify  # noqa: E402
+
 ENTITY_TYPES = [
     "character", "location", "faction", "item", "magic-system", "arc",
     "event", "species", "race", "language", "lineage",
@@ -52,11 +58,29 @@ async def app_lifespan(server):
 
 mcp = FastMCP("worldbuilder_mcp", lifespan=app_lifespan)
 
+READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+WRITES = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
+
 
 # ─── Shared Helpers ─────────────────────────────────────────────────────────
 
-def _slugify(name: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+_slugify = slugify
+
+CLI_TIMEOUT_SECONDS = 120
+
+
+async def _run_cli(cmd: list[str]) -> subprocess.CompletedProcess:
+    """Run a worldbuilder.py command in a worker thread so it can't block the event loop.
+
+    A command that runs longer than CLI_TIMEOUT_SECONDS is killed and reported via stderr.
+    """
+    try:
+        return await asyncio.to_thread(
+            subprocess.run, cmd, capture_output=True, text=True, cwd=str(SERVER_ROOT), timeout=CLI_TIMEOUT_SECONDS
+        )
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(cmd, returncode=-1, stdout="",
+                                           stderr=f"worldbuilder CLI timed out after {CLI_TIMEOUT_SECONDS}s")
 
 
 WORLDS_DIR = SERVER_ROOT / "worlds"
@@ -99,16 +123,9 @@ def _load_yaml(filepath: Path) -> dict:
 
 
 def _load_entity_file(filepath: Path) -> dict:
-    """Parse YAML frontmatter + Markdown."""
-    with open(filepath) as f:
-        content = f.read()
-    if content.startswith("---"):
-        parts = content.split("---", 2)
-        if len(parts) >= 3:
-            meta = yaml.safe_load(parts[1]) or {}
-            body = parts[2].strip()
-            return {"meta": meta, "body": body, "path": str(filepath)}
-    return {"meta": {}, "body": content, "path": str(filepath)}
+    """Parse YAML frontmatter + Markdown. Invalid frontmatter yields empty meta, not a crash."""
+    meta, body = parse_frontmatter(filepath)
+    return {"meta": meta if isinstance(meta, dict) else {}, "body": body.strip(), "path": str(filepath)}
 
 
 def _collect_entities(project_dir: Path) -> Dict[str, Dict[str, dict]]:
@@ -235,7 +252,7 @@ def _get_cli_script() -> Path:
 
 @mcp.tool(
     name="wb_list_projects",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    annotations=READ_ONLY,
 )
 async def wb_list_projects() -> str:
     """List all WorldBuilder projects in the workspace.
@@ -245,7 +262,8 @@ async def wb_list_projects() -> str:
     """
     projects = _discover_projects()
     if not projects:
-        return "No WorldBuilder projects found. Use `wb_init_project` to create one, or `wb_wizard` to auto-generate a world."
+        return ("No WorldBuilder projects found. Use `wb_init_project` to create one, or `wb_wizard` to auto-generate "
+            "a world.")
 
     lines = ["# WorldBuilder Projects\n"]
     for slug, path in sorted(projects.items()):
@@ -257,7 +275,7 @@ async def wb_list_projects() -> str:
 
 @mcp.tool(
     name="wb_project_overview",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    annotations=READ_ONLY,
 )
 async def wb_project_overview(project: str = "") -> str:
     """Get a full overview of a WorldBuilder project: config, entity counts, style, world flags.
@@ -273,12 +291,14 @@ async def wb_project_overview(project: str = "") -> str:
 
     lines = [f"# {config.get('title', project_dir.name)}\n"]
     lines.append(f"**Genre**: {config.get('genre', '?')}  |  **Type**: {config.get('type', '?')}")
-    lines.append(f"**Target**: {config.get('target_word_count', '?')} words  |  **Chapter target**: {config.get('chapter_target_words', 3000)} words\n")
+    lines.append(f"**Target**: {config.get('target_word_count', '?')} words  |  **Chapter target**: "
+        f"{config.get('chapter_target_words', 3000)} words\n")
 
     style = config.get("style", {})
     prose = style.get("prose", {})
     if prose:
-        lines.append(f"**Prose**: {prose.get('preset', '?')} | POV: {prose.get('pov', '?')} | Tense: {prose.get('tense', '?')}")
+        lines.append(f"**Prose**: {prose.get('preset', '?')} | POV: {prose.get('pov', '?')} | Tense: "
+            f"{prose.get('tense', '?')}")
 
     visual = style.get("visual", {})
     if visual:
@@ -295,14 +315,15 @@ async def wb_project_overview(project: str = "") -> str:
     eco_file = project_dir / "world" / "economy.yaml"
     if eco_file.exists():
         eco = _load_yaml(eco_file)
-        lines.append(f"\n**Economy**: {len(eco.get('currencies', []))} currencies, {len(eco.get('resources', []))} resources, {len(eco.get('trade_routes', []))} trade routes")
+        lines.append(f"\n**Economy**: {len(eco.get('currencies', []))} currencies, {len(eco.get('resources', []))} "
+            f"resources, {len(eco.get('trade_routes', []))} trade routes")
 
     return "\n".join(lines)
 
 
 @mcp.tool(
     name="wb_init_project",
-    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    annotations=WRITES,
 )
 async def wb_init_project(
     name: str,
@@ -316,7 +337,15 @@ async def wb_init_project(
         genre: Genre preset: fantasy, scifi, modern, horror, post-apocalyptic, steampunk, custom.
         project_type: Project type: novel, series, campaign, game, worldbook.
     """
+    # genre and project_type end up in file paths / config: only accept plain kebab-case names
+    genre, project_type = genre.strip().lower(), project_type.strip().lower()
+    for label, value in (("genre", genre), ("project_type", project_type)):
+        if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", value):
+            return f"Error: Invalid {label} '{value}' — use a kebab-case name like 'fantasy'."
+
     slug = _slugify(name)
+    if not slug:
+        return "Error: Project name must contain at least one letter or digit."
     project_dir = SERVER_ROOT / slug
     if project_dir.exists():
         return f"Error: Project directory '{slug}' already exists."
@@ -348,25 +377,27 @@ async def wb_init_project(
         import shutil
         shutil.copy(preset_file, project_dir / "world" / "world_flags.yaml")
 
-    return f"✓ Project **{name}** initialized at `{slug}/`\n\nDirectories created for all {len(ENTITY_DIRS)} entity types.\nUse `wb_add_entity` to start populating your world, or `wb_wizard` to auto-generate."
+    return (f"✓ Project **{name}** initialized at `{slug}/`\n\nDirectories created for all {len(ENTITY_DIRS)} entity "
+        f"types.\nUse `wb_add_entity` to start populating your world, or `wb_wizard` to auto-generate.")
 
 
 # ─── Entity CRUD ────────────────────────────────────────────────────────────
 
 @mcp.tool(
     name="wb_add_entity",
-    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    annotations=WRITES,
 )
 async def wb_add_entity(
     entity_type: str,
     name: str,
     project: str = "",
-    fields: dict = None,
+    fields: Optional[dict] = None,
 ) -> str:
     """Add a new entity to a WorldBuilder project by copying the appropriate template.
 
     Args:
-        entity_type: Type of entity: character, location, faction, item, magic-system, arc, event, species, race, language, lineage.
+        entity_type: Type of entity: character, location, faction, item, magic-system, arc, event, species, race,
+            language, lineage.
         name: Entity name (e.g., 'Kael Dawnblade').
         project: Project name/slug. Omit if only one project.
         fields: Optional dict of additional YAML fields to set.
@@ -377,6 +408,8 @@ async def wb_add_entity(
     project_dir = _resolve_project(project or None)
     dirname = ENTITY_DIRS[entity_type]
     slug = _slugify(name)
+    if not slug:
+        return "Error: Entity name must contain at least one letter or digit."
 
     target_dir = project_dir / "world" / dirname
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -387,18 +420,20 @@ async def wb_add_entity(
 
     template_file = TEMPLATE_DIR / dirname / "_template.md"
     if template_file.exists():
-        content = template_file.read_text()
-        content = content.replace("Entity Name", name)
+        content = fill_name_placeholders(template_file.read_text(), name)
     else:
-        content = f"---\nname: \"{name}\"\ntype: \"{entity_type}\"\nstatus: active\n---\n\n## Description\n\n"
+        content = fill_name_placeholders(
+            f'---\nname: "{{{{NAME}}}}"\ntype: "{entity_type}"\nstatus: active\n---\n\n## Description\n\n', name
+        )
 
     target_file.write_text(content)
-    return f"✓ Created **{name}** (`{dirname}/{slug}.md`)\n\nEdit the file to fill in details. The YAML frontmatter defines structured fields; the Markdown body is for prose notes."
+    return (f"✓ Created **{name}** (`{dirname}/{slug}.md`)\n\nEdit the file to fill in details. The YAML frontmatter "
+        f"defines structured fields; the Markdown body is for prose notes.")
 
 
 @mcp.tool(
     name="wb_get_entity",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    annotations=READ_ONLY,
 )
 async def wb_get_entity(
     entity_type: str,
@@ -427,7 +462,7 @@ async def wb_get_entity(
 
 @mcp.tool(
     name="wb_list_entities",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    annotations=READ_ONLY,
 )
 async def wb_list_entities(
     entity_type: str = "",
@@ -477,7 +512,7 @@ async def wb_list_entities(
 
 @mcp.tool(
     name="wb_search",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    annotations=READ_ONLY,
 )
 async def wb_search(query: str, project: str = "") -> str:
     """Search across ALL entity types for a term. Searches names, metadata, and prose bodies.
@@ -524,7 +559,7 @@ async def wb_search(query: str, project: str = "") -> str:
 
 @mcp.tool(
     name="wb_timeline",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    annotations=READ_ONLY,
 )
 async def wb_timeline(project: str = "") -> str:
     """Display the world timeline — all events in chronological order.
@@ -554,7 +589,9 @@ async def wb_timeline(project: str = "") -> str:
         d = m.get("date", m.get("start_date", "?"))
         date_str = _serialize_date(d)
         sig = m.get("significance", "minor")
-        sig_icon = {"world-changing": "🔴", "major": "🟠", "moderate": "🔵", "minor": "⚪", "trivial": "·"}.get(sig, "·")
+        sig_icon = {"world-changing": "🔴", "major": "🟠", "moderate": "🔵", "minor": "⚪", "trivial": "·"}.get(
+            sig, "·"
+        )
 
         lines.append(f"{sig_icon} **[{date_str}]** {m.get('name', slug)} ({m.get('type', '?')})")
 
@@ -573,7 +610,7 @@ async def wb_timeline(project: str = "") -> str:
 
 @mcp.tool(
     name="wb_geography",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    annotations=READ_ONLY,
 )
 async def wb_geography(project: str = "") -> str:
     """Display the spatial hierarchy of locations and transport routes between them.
@@ -612,7 +649,8 @@ async def wb_geography(project: str = "") -> str:
             methods = route.get("methods", [])
             rt = route.get("route_type", "minor")
             if methods:
-                modes = ", ".join(f"{m.get('mode', '?')} ({m.get('travel_time', '?')})" for m in methods if isinstance(m, dict))
+                modes = ", ".join(f"{m.get('mode', '?')} "
+                    f"({m.get('travel_time', '?')})" for m in methods if isinstance(m, dict))
                 lines.append(f"{indent}  → {dest} [{rt}]: {modes}")
 
         for child in children.get(slug, []):
@@ -627,7 +665,7 @@ async def wb_geography(project: str = "") -> str:
 
 @mcp.tool(
     name="wb_families",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    annotations=READ_ONLY,
 )
 async def wb_families(project: str = "") -> str:
     """Display lineages/dynasties with their family members, heraldry, and relationships.
@@ -677,7 +715,7 @@ async def wb_families(project: str = "") -> str:
 
 @mcp.tool(
     name="wb_languages",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    annotations=READ_ONLY,
 )
 async def wb_languages(project: str = "") -> str:
     """Display language families, status, mutual intelligibility, and speaker info.
@@ -727,7 +765,7 @@ async def wb_languages(project: str = "") -> str:
 
 @mcp.tool(
     name="wb_species",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    annotations=READ_ONLY,
 )
 async def wb_species(project: str = "") -> str:
     """Display species and their associated races, biology, and relationships.
@@ -761,7 +799,7 @@ async def wb_species(project: str = "") -> str:
 
         sp_races = [r for r_slug, r in races.items() if _slugify(r["meta"].get("species", "")) == slug]
         if sp_races:
-            lines.append(f"\nRaces:")
+            lines.append("\nRaces:")
             for r in sp_races:
                 lines.append(f"  - **{r['meta'].get('name', '?')}**")
         lines.append("")
@@ -771,7 +809,7 @@ async def wb_species(project: str = "") -> str:
 
 @mcp.tool(
     name="wb_economy",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    annotations=READ_ONLY,
 )
 async def wb_economy(project: str = "") -> str:
     """Display the economic overview: currencies, resources, production, trade routes.
@@ -795,13 +833,15 @@ async def wb_economy(project: str = "") -> str:
     if resources:
         lines.append(f"\n## Resources ({len(resources)})\n")
         for r in resources:
-            lines.append(f"- **{r.get('name', '?')}** [{r.get('category', '?')}] — {r.get('rarity', '?')}, base: {r.get('base_value', '?')}")
+            lines.append(f"- **{r.get('name', '?')}** [{r.get('category', '?')}] — {r.get('rarity', '?')}, base: "
+                f"{r.get('base_value', '?')}")
 
     routes = eco.get("trade_routes", [])
     if routes:
         lines.append(f"\n## Trade Routes ({len(routes)})\n")
         for rt in routes:
-            lines.append(f"- **{rt.get('name', '?')}**: {rt.get('from_location', '?')} ↔ {rt.get('to_location', '?')} ({rt.get('annual_value', '?')}/yr)")
+            lines.append(f"- **{rt.get('name', '?')}**: {rt.get('from_location', '?')} ↔ {rt.get('to_location', '?')} "
+                f"({rt.get('annual_value', '?')}/yr)")
             for g in rt.get("goods", []):
                 arrow = {"outbound": "→", "inbound": "←", "both": "↔"}.get(g.get("direction", "both"), "↔")
                 lines.append(f"  {arrow} {g.get('resource', '?')}: {g.get('volume', '?')}")
@@ -811,7 +851,7 @@ async def wb_economy(project: str = "") -> str:
 
 @mcp.tool(
     name="wb_world_flags",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    annotations=READ_ONLY,
 )
 async def wb_world_flags(project: str = "") -> str:
     """Display world flags — the boolean rules that define what's possible in this world.
@@ -855,7 +895,7 @@ async def wb_world_flags(project: str = "") -> str:
 
 @mcp.tool(
     name="wb_generate_image",
-    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    annotations=WRITES,
 )
 async def wb_generate_image(
     entity_type: str,
@@ -895,7 +935,7 @@ async def wb_generate_image(
         webapp_dir = SERVER_ROOT / "webapp"
         if str(webapp_dir) not in sys.path:
             sys.path.insert(0, str(webapp_dir))
-        from imagegen import submit_job, get_job, get_status
+        from imagegen import get_job, get_status, submit_job
 
         status = get_status()
         if not status["mlx_available"]:
@@ -922,14 +962,17 @@ async def wb_generate_image(
         elif job.get("status") == "failed":
             return f"Generation failed: {job.get('error', 'unknown error')}"
         else:
-            # Job is queued/running — wait for it (MCP calls are synchronous from client perspective)
-            import time
+            # Job is queued/running — wait for it (MCP calls are synchronous from client perspective).
+            # asyncio.sleep, not time.sleep: a blocking sleep would stall every other tool call.
             job_id = job.get("job_id")
+            if not job_id:
+                return f"Generation failed: no job ID returned ({job.get('error', 'unknown error')})"
             for _ in range(300):  # up to ~5 minutes
-                time.sleep(1)
+                await asyncio.sleep(1)
                 result = get_job(job_id)
                 if result and result.get("status") == "complete":
-                    return f"✓ Image generated for **{meta.get('name', slug)}**: `output/images/{result.get('filename')}`"
+                    return (f"✓ Image generated for **{meta.get('name', slug)}**: "
+                        f"`output/images/{result.get('filename')}`")
                 elif result and result.get("status") == "failed":
                     return f"Generation failed: {result.get('error', 'unknown error')}"
             return f"Image generation timed out (job {job_id}). Check status via the web UI."
@@ -947,7 +990,7 @@ async def wb_generate_image(
 
 @mcp.tool(
     name="wb_validate",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    annotations=READ_ONLY,
 )
 async def wb_validate(project: str = "") -> str:
     """Validate project consistency: cross-references, timeline, geography, species, world flags.
@@ -958,10 +1001,7 @@ async def wb_validate(project: str = "") -> str:
     project_dir = _resolve_project(project or None)
     script = _get_cli_script()
 
-    result = subprocess.run(
-        [sys.executable, str(script), "validate", "--project", str(project_dir)],
-        capture_output=True, text=True, cwd=str(SERVER_ROOT)
-    )
+    result = await _run_cli([sys.executable, str(script), "validate", "--project", str(project_dir)])
     output = result.stdout + result.stderr
     return output if output.strip() else "Validation complete — no output (check if project has entities)."
 
@@ -970,7 +1010,7 @@ async def wb_validate(project: str = "") -> str:
 
 @mcp.tool(
     name="wb_wizard",
-    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    annotations=WRITES,
 )
 async def wb_wizard(
     mode: str = "yolo",
@@ -998,13 +1038,13 @@ async def wb_wizard(
     if seed:
         cmd.extend(["--seed", seed])
 
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(SERVER_ROOT))
+    result = await _run_cli(cmd)
     return result.stdout if result.stdout.strip() else f"Error: {result.stderr}"
 
 
 @mcp.tool(
     name="wb_generate_history",
-    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    annotations=WRITES,
 )
 async def wb_generate_history(
     gen_type: str = "mixed",
@@ -1021,17 +1061,14 @@ async def wb_generate_history(
     project_dir = _resolve_project(project or None)
     script = _get_cli_script()
 
-    result = subprocess.run(
-        [sys.executable, str(script), "generate", gen_type,
-         "--years", str(years), "--project", str(project_dir)],
-        capture_output=True, text=True, cwd=str(SERVER_ROOT)
-    )
+    result = await _run_cli([sys.executable, str(script), "generate", gen_type,
+                             "--years", str(years), "--project", str(project_dir)])
     return result.stdout if result.stdout.strip() else f"Error: {result.stderr}"
 
 
 @mcp.tool(
     name="wb_write_chapter",
-    annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    annotations=WRITES,
 )
 async def wb_write_chapter(
     chapter: int = 0,
@@ -1050,19 +1087,20 @@ async def wb_write_chapter(
     if chapter and chapter > 0:
         cmd.extend(["--chapter", str(chapter)])
 
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(SERVER_ROOT))
+    result = await _run_cli(cmd)
     return result.stdout if result.stdout.strip() else f"Error: {result.stderr}"
 
 
 @mcp.tool(
     name="wb_edit_review",
-    annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    annotations=READ_ONLY,
 )
 async def wb_edit_review(
     editor: str,
     project: str = "",
 ) -> str:
-    """Generate an editor review prompt. 9 editors: character, continuity, dialogue, geography, pacing, plot, prose, sensitivity, worldrules.
+    """Generate an editor review prompt. 9 editors: character, continuity, dialogue, geography, pacing, plot, prose,
+    sensitivity, worldrules.
 
     Args:
         editor: Editor persona name. Use 'list' to see all available editors.
@@ -1080,10 +1118,7 @@ async def wb_edit_review(
     project_dir = _resolve_project(project or None)
     script = _get_cli_script()
 
-    result = subprocess.run(
-        [sys.executable, str(script), "edit", editor, "--project", str(project_dir)],
-        capture_output=True, text=True, cwd=str(SERVER_ROOT)
-    )
+    result = await _run_cli([sys.executable, str(script), "edit", editor, "--project", str(project_dir)])
     return result.stdout if result.stdout.strip() else f"Error: {result.stderr}"
 
 

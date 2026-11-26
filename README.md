@@ -351,19 +351,17 @@ WorldBuilder downloads AI models at runtime from HuggingFace Hub. No model weigh
 ## Testing & Linting
 
 ```bash
-uv sync --extra dev              # install pytest + ruff
-uv run pytest tests/ -v          # run the test suite
-uv run ruff check .              # lint
+make verify                      # sync deps, then ruff + pyright + pytest
 ```
 
-Tests should pass before submitting changes.
+`make verify` must pass before submitting changes; CI runs the same target.
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/your-feature`)
 3. Make your changes
-4. Run `uv run pytest tests/ -v` and `uv run ruff check .` — both should pass
+4. Run `make verify` — it should pass
 5. Submit a pull request
 
 ## License

@@ -20,7 +20,6 @@ Usage:
 """
 
 import argparse
-import os
 import re
 import shutil
 import sys
@@ -28,6 +27,8 @@ from datetime import datetime
 from pathlib import Path
 
 import yaml
+from entity_io import fill_name_placeholders, parse_frontmatter, slugify
+from worlddate import WorldDate, get_event_date, parse_worlddate
 
 # Where are the templates?
 TOOL_DIR = Path(__file__).parent
@@ -81,162 +82,12 @@ def load_project(project_path):
         return yaml.safe_load(f)
 
 
-def slugify(name):
-    """Convert a name to a filename-safe slug."""
-    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# WORLDDATE — in-world calendar date handling
-# ═══════════════════════════════════════════════════════════════════════════════
-
-class WorldDate:
-    """Represents a date in the world's calendar. Comparable and sortable."""
-
-    def __init__(self, data, calendar_config=None):
-        """
-        data can be:
-          - dict: {year: 1247, month: 3, day: 15, era_prefix: "3A", display: "...", approximate: false}
-          - None: represents "unknown date"
-        """
-        if data is None or data == "" or (isinstance(data, dict) and not data.get("year")):
-            self.valid = False
-            self.year = 0
-            self.month = 0
-            self.day = 0
-            self.era_prefix = ""
-            self.era_sort = 0
-            self.display = ""
-            self.approximate = False
-            return
-
-        self.valid = True
-        if isinstance(data, (int, float)):
-            # Shorthand: just a year number
-            self.year = int(data)
-            self.month = 0
-            self.day = 0
-            self.era_prefix = ""
-            self.display = str(self.year)
-            self.approximate = False
-        elif isinstance(data, dict):
-            self.year = int(data.get("year", 0))
-            self.month = int(data.get("month", 0))
-            self.day = int(data.get("day", 0))
-            self.era_prefix = str(data.get("era_prefix", ""))
-            self.display = data.get("display", "")
-            self.approximate = bool(data.get("approximate", False))
-        else:
-            # Try to parse as string "year" or "era_prefix year"
-            self.valid = False
-            self.year = 0
-            self.month = 0
-            self.day = 0
-            self.era_prefix = ""
-            self.display = str(data)
-            self.approximate = False
-            return
-
-        # Resolve era sort order from calendar config
-        self.era_sort = 0
-        if calendar_config and self.era_prefix:
-            for era in calendar_config.get("eras", []):
-                if era.get("prefix") == self.era_prefix:
-                    self.era_sort = era.get("sort_order", 0)
-                    break
-
-        if not self.display:
-            parts = []
-            if self.era_prefix:
-                parts.append(self.era_prefix)
-            parts.append(str(self.year))
-            if self.month:
-                parts.append(f"m{self.month}")
-            if self.day:
-                parts.append(f"d{self.day}")
-            self.display = " ".join(parts)
-
-    def sort_key(self):
-        """Return a tuple for chronological sorting."""
-        return (self.era_sort, self.year, self.month, self.day)
-
-    def __lt__(self, other):
-        if not self.valid or not other.valid:
-            return False
-        return self.sort_key() < other.sort_key()
-
-    def __le__(self, other):
-        if not self.valid or not other.valid:
-            return False
-        return self.sort_key() <= other.sort_key()
-
-    def __gt__(self, other):
-        if not self.valid or not other.valid:
-            return False
-        return self.sort_key() > other.sort_key()
-
-    def __ge__(self, other):
-        if not self.valid or not other.valid:
-            return False
-        return self.sort_key() >= other.sort_key()
-
-    def __eq__(self, other):
-        if not isinstance(other, WorldDate):
-            return False
-        if not self.valid or not other.valid:
-            return False
-        return self.sort_key() == other.sort_key()
-
-    def __repr__(self):
-        if not self.valid:
-            return "WorldDate(unknown)"
-        return f"WorldDate({self.display})"
-
-
-def parse_worlddate(data, calendar_config=None):
-    """Parse a worlddate from YAML data."""
-    return WorldDate(data, calendar_config)
-
-
-def get_event_date(meta, calendar_config=None):
-    """Extract the primary date from an event's metadata.
-    Returns (start_date, end_date) as WorldDate objects.
-    For instant events, end_date == start_date."""
-    date = parse_worlddate(meta.get("date"), calendar_config)
-    start = parse_worlddate(meta.get("start_date"), calendar_config)
-    end = parse_worlddate(meta.get("end_date"), calendar_config)
-
-    # Instant event: use 'date'
-    if date.valid:
-        return date, date
-    # Duration event: use start/end
-    if start.valid:
-        return start, end if end.valid else start
-    return WorldDate(None), WorldDate(None)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ENTITY COLLECTION & PARSING
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def parse_frontmatter(filepath):
-    """Extract YAML frontmatter from a markdown file."""
-    with open(filepath, "r") as f:
-        content = f.read()
-
-    if not content.startswith("---"):
-        return None, content
-
-    parts = content.split("---", 2)
-    if len(parts) < 3:
-        return None, content
-
-    try:
-        meta = yaml.safe_load(parts[1])
-        body = parts[2]
-        return meta, body
-    except yaml.YAMLError:
-        return None, content
 
 
 def collect_entities(project_dir):
@@ -349,8 +200,6 @@ def gather_temporal_context(entities, calendar, anchor_type, anchor_value, confi
     languages = entities.get("language", {})
     items_ents = entities.get("item", {})
     magic_systems = entities.get("magic-system", {})
-    lineages = entities.get("lineage", {})
-    arcs = entities.get("arc", {})
 
     # Parse and sort all events chronologically
     dated_events = []
@@ -527,7 +376,8 @@ def format_world_context_block(ctx):
         lines.append(f"Calendar: {calendar.get('name', 'unknown')}")
         for era in eras:
             end_yr = era.get("end_year", "present")
-            lines.append(f"- {era.get('prefix', '?')}: {era.get('name', '?')} (year {era.get('start_year', '?')} — {end_yr})")
+            lines.append(f"- {era.get('prefix', '?')}: {era.get('name', '?')} (year {era.get('start_year', '?')} — "
+                f"{end_yr})")
             desc = era.get("description", "")
             if desc:
                 lines.append(f"  {desc}")
@@ -544,9 +394,11 @@ def format_world_context_block(ctx):
             lines.append(f"### {m.get('name', slug)}")
             lines.append(f"Sentience: {m.get('sentience', '?')}")
             if bio:
-                lines.append(f"Biology: {bio.get('classification', '?')}, size {bio.get('size', '?')}, lifespan {bio.get('lifespan', '?')}")
+                lines.append(f"Biology: {bio.get('classification', '?')}, size {bio.get('size', '?')}, lifespan "
+                    f"{bio.get('lifespan', '?')}")
             if culture:
-                lines.append(f"Culture: {culture.get('social_structure', '?')}, tech {culture.get('technology_level', '?')}")
+                lines.append(f"Culture: {culture.get('social_structure', '?')}, tech "
+                    f"{culture.get('technology_level', '?')}")
             lines.append("")
 
     # 4. Races
@@ -570,7 +422,8 @@ def format_world_context_block(ctx):
             m = data["meta"]
             speakers = m.get("speakers", {}) or {}
             script = m.get("script", {}) or {}
-            lines.append(f"- **{m.get('name', slug)}**: status {m.get('status', '?')}, speakers: {speakers.get('total_speakers', '?')}, script: {script.get('name', '?')}")
+            lines.append(f"- **{m.get('name', slug)}**: status {m.get('status', '?')}, speakers: "
+                f"{speakers.get('total_speakers', '?')}, script: {script.get('name', '?')}")
         lines.append("")
 
     # 6. Active Factions
@@ -657,7 +510,8 @@ def format_world_context_block(ctx):
         lines.append(f"## Items ({len(items)})\n")
         for slug, data in items.items():
             m = data["meta"]
-            lines.append(f"- **{m.get('name', slug)}** [{m.get('type', '?')}]: significance {m.get('significance', '?')}, owner: {m.get('owner', '?')}, location: {m.get('location', '?')}")
+            lines.append(f"- **{m.get('name', slug)}** [{m.get('type', '?')}]: significance "
+                f"{m.get('significance', '?')}, owner: {m.get('owner', '?')}, location: {m.get('location', '?')}")
         lines.append("")
 
     # 10. Magic/Tech Systems
@@ -727,7 +581,8 @@ def format_world_context_block(ctx):
         for start, end, slug, data in events_during:
             m = data["meta"]
             lines.append(f"#### [{start.display}] {m.get('name', slug)}")
-            lines.append(f"Type: {m.get('type', '?')}, Significance: {m.get('significance', '?')}, Scope: {m.get('scope', '?')}")
+            lines.append(f"Type: {m.get('type', '?')}, Significance: {m.get('significance', '?')}, Scope: "
+                f"{m.get('scope', '?')}")
             descs = m.get("descriptions", {}) or {}
             machine = descs.get("machine", {}) or {}
             scene = machine.get("scene", "")
@@ -812,7 +667,7 @@ def cmd_init(args):
     with open(template_file, "r") as f:
         content = f.read()
 
-    content = content.replace("{{TITLE}}", name)
+    content = fill_name_placeholders(content, name)
     content = content.replace("genre: fantasy", f"genre: {genre}")
     content = content.replace("type: novel", f"type: {proj_type}")
     content = content.replace("preset: fantasy", f"preset: {genre}")
@@ -929,9 +784,7 @@ def cmd_add(args):
     with open(template_file, "r") as f:
         content = f.read()
 
-    content = content.replace("{{NAME}}", name)
-    if "{{TITLE}}" in content:
-        content = content.replace("{{TITLE}}", name)
+    content = fill_name_placeholders(content, name)
 
     with open(output_file, "w") as f:
         f.write(content)
@@ -956,7 +809,7 @@ def cmd_add_chapter(project_dir, name, number=None):
     with open(template_file, "r") as f:
         content = f.read()
 
-    content = content.replace("{{TITLE}}", name)
+    content = fill_name_placeholders(content, name)
     content = content.replace("number: 1", f"number: {number}")
 
     with open(output_file, "w") as f:
@@ -1107,7 +960,8 @@ def cmd_validate(args):
                     cause_start, _ = get_event_date(cause_data["meta"], calendar)
                     if cause_start.valid and start.valid and cause_start > start:
                         issues.append(
-                            f"Event '{name}' ({start.display}): caused_by '{cause_data['meta'].get('name', caused_slug)}' "
+                            f"Event '{name}' ({start.display}): caused_by "
+                                f"'{cause_data['meta'].get('name', caused_slug)}' "
                             f"({cause_start.display}) which happens AFTER it"
                         )
 
@@ -1140,8 +994,8 @@ def cmd_validate(args):
                         char_death_events = [
                             e for e in events.values()
                             if e["meta"].get("type") == "death"
-                            and resolve_ref(e["meta"].get("person", ""), name_index)
-                            and resolve_ref(e["meta"].get("person", ""), name_index)[2] == resolved[2]
+                            and (death_ref := resolve_ref(e["meta"].get("person", ""), name_index))
+                            and death_ref[2] == resolved[2]
                         ]
                         for death_evt in char_death_events:
                             death_start, _ = get_event_date(death_evt["meta"], calendar)
@@ -1264,9 +1118,7 @@ def cmd_fix(args):
         print("Error: No project found.")
         sys.exit(1)
 
-    config = load_project(project_dir)
     entities = collect_entities(project_dir)
-    calendar = load_calendar(project_dir)
     name_index = build_name_index(entities)
 
     # Import graph
@@ -1393,7 +1245,8 @@ def markdown_to_html(md_content, title, author):
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{title}</title>
     <style>
-        body {{ font-family: 'Georgia', 'Times New Roman', serif; max-width: 700px; margin: 2em auto; padding: 0 1em; line-height: 1.7; color: #2c2c2c; background: #fefefe; }}
+        body {{ font-family: 'Georgia', 'Times New Roman', serif; max-width: 700px; margin: 2em auto; padding: 0 1em;
+        line-height: 1.7; color: #2c2c2c; background: #fefefe; }}
         h1 {{ font-size: 2.2em; text-align: center; margin-bottom: 0.2em; }}
         h2 {{ font-size: 1.5em; margin-top: 2em; border-bottom: 1px solid #ddd; padding-bottom: 0.3em; }}
         h3 {{ font-size: 1.2em; }}
@@ -1428,7 +1281,19 @@ def cmd_stats(args):
     print()
 
     # Entity counts
-    for etype in ["character", "location", "faction", "item", "magic-system", "event", "species", "race", "language", "lineage", "chapter"]:
+    for etype in [
+        "character",
+        "location",
+        "faction",
+        "item",
+        "magic-system",
+        "event",
+        "species",
+        "race",
+        "language",
+        "lineage",
+        "chapter",
+    ]:
         count = len(entities.get(etype, {}))
         # Handle plurals correctly
         if etype.endswith("s"):
@@ -1444,7 +1309,7 @@ def cmd_stats(args):
         for slug, data in events.items():
             et = data["meta"].get("type", "milestone")
             evt_types[et] = evt_types.get(et, 0) + 1
-        print(f"\n  Event types:")
+        print("\n  Event types:")
         for et, count in sorted(evt_types.items(), key=lambda x: -x[1]):
             print(f"    {et:<20} {count}")
 
@@ -1469,7 +1334,7 @@ def cmd_stats(args):
         print(f"  Target:             {target:,} ({pct:.1f}%)")
 
     if chapter_words:
-        print(f"\n  Chapter breakdown:")
+        print("\n  Chapter breakdown:")
         for num, title, wc, status in chapter_words:
             bar = "█" * min(int(wc / 200), 30)
             print(f"    Ch {num:>2}: {title:<30} {wc:>6,}w [{status}] {bar}")
@@ -1481,7 +1346,7 @@ def cmd_stats(args):
         for slug, data in chars.items():
             role = data["meta"].get("role", "unknown")
             roles[role] = roles.get(role, 0) + 1
-        print(f"\n  Character roles:")
+        print("\n  Character roles:")
         for role, count in sorted(roles.items()):
             print(f"    {role:<20} {count}")
 
@@ -1603,15 +1468,15 @@ def cmd_timeline(args):
         # Locations
         locs = meta.get("locations", []) or []
         if locs:
-            print(f"      Locations: {', '.join(str(l) for l in locs)}")
+            print(f"      Locations: {', '.join(str(x) for x in locs)}")
 
         # Causality
         leads = meta.get("leads_to", []) or []
         if leads:
-            print(f"      → Leads to: {', '.join(str(l) for l in leads)}")
+            print(f"      → Leads to: {', '.join(str(x) for x in leads)}")
 
     if undated_events:
-        print(f"\n  ━━━ Undated Events ━━━")
+        print("\n  ━━━ Undated Events ━━━")
         for slug, meta in undated_events:
             name = meta.get("name", slug)
             evt_type = meta.get("type", "?")
@@ -1790,12 +1655,12 @@ def cmd_crossref(args):
                 refs_to.append((et, name, slug))
 
     if refs_from:
-        print(f"  References (this entity mentions):")
+        print("  References (this entity mentions):")
         for rt, rn, rs in sorted(set(refs_from)):
             print(f"    → [{rt}] {rn}")
 
     if refs_to:
-        print(f"\n  Referenced by (other entities mention this one):")
+        print("\n  Referenced by (other entities mention this one):")
         for rt, rn, rs in sorted(set(refs_to)):
             print(f"    ← [{rt}] {rn}")
 
@@ -2037,7 +1902,6 @@ def cmd_edit(args):
         sys.exit(1)
 
     editor = editors[editor_name]
-    config = load_project(project_dir)
     entities = collect_entities(project_dir)
 
     # Parse chapter range
@@ -2128,7 +1992,7 @@ def cmd_edit(args):
     print(full_prompt)
     print(f"\n{'=' * 60}")
     print(f"✓ Review prompt saved to: {review_file.relative_to(project_dir)}")
-    print(f"\nTo execute: Feed this prompt + the context files to Claude with the")
+    print("\nTo execute: Feed this prompt + the context files to Claude with the")
     print(f"chapter text to get a detailed {name} review.")
 
 
@@ -2555,7 +2419,11 @@ def validate_bidirectional_refs(entities, name_index, issues, warnings):
                 )
 
         # Spouse symmetry
-        for spouse_ref in fl.get("spouse", []) or [] if isinstance(fl.get("spouse"), list) else ([fl.get("spouse")] if fl.get("spouse") else []):
+        for spouse_ref in (
+            fl.get("spouse", []) or []
+            if isinstance(fl.get("spouse"), list)
+            else ([fl.get("spouse")] if fl.get("spouse") else [])
+        ):
             if not spouse_ref:
                 continue
             resolved = resolve_ref(spouse_ref, name_index)
@@ -2565,7 +2433,11 @@ def validate_bidirectional_refs(entities, name_index, issues, warnings):
             if not spouse_data:
                 continue
             spouse_fl = spouse_data["meta"].get("family_links", {}) or {}
-            spouse_spouses = spouse_fl.get("spouse", []) or [] if isinstance(spouse_fl.get("spouse"), list) else ([spouse_fl.get("spouse")] if spouse_fl.get("spouse") else [])
+            spouse_spouses = (
+                spouse_fl.get("spouse", []) or []
+                if isinstance(spouse_fl.get("spouse"), list)
+                else ([spouse_fl.get("spouse")] if spouse_fl.get("spouse") else [])
+            )
             spouse_slugs = []
             for s in spouse_spouses:
                 if s:
@@ -2873,7 +2745,6 @@ def validate_business_rules(entities, name_index, calendar, issues, warnings):
     """Validate business rules: parent age, faction leaders, image prompts."""
     characters = entities.get("character", {})
     factions = entities.get("faction", {})
-    events = entities.get("event", {})
 
     # ── Helper: parse age as integer from age string ─────────────────────────
     def parse_age(age_val):
@@ -3195,7 +3066,16 @@ def cmd_languages(args):
             status = meta.get("status", "living")
             speakers = (meta.get("speakers") or {}).get("total_speakers", "")
             sp_str = f" ({speakers})" if speakers else ""
-            status_icon = {"living": "●", "endangered": "⚠", "dead": "✝", "extinct": "✗", "proto": "◇", "ancient": "◈", "constructed": "⚙", "divine": "★"}.get(status, "○")
+            status_icon = {
+                "living": "●",
+                "endangered": "⚠",
+                "dead": "✝",
+                "extinct": "✗",
+                "proto": "◇",
+                "ancient": "◈",
+                "constructed": "⚙",
+                "divine": "★",
+            }.get(status, "○")
             print(f"{indent}{status_icon} {name}{sp_str} [{status}]")
 
             # Print intelligibility
@@ -3219,7 +3099,7 @@ def cmd_languages(args):
         print(f"  └{'─' * 42}")
 
     if orphans:
-        print(f"\n  ┌─ Unaffiliated Languages ────────────────")
+        print("\n  ┌─ Unaffiliated Languages ────────────────")
         for slug, meta in orphans:
             name = meta.get("name", slug)
             status = meta.get("status", "living")
@@ -3262,7 +3142,14 @@ def cmd_peoples(args):
         pop = habitat.get("population_estimate", "?")
         trend = habitat.get("population_trend", "?")
 
-        sent_icon = {"sapient": "🧠", "semi-sapient": "🐵", "non-sapient": "🐾", "hive-mind": "🐝", "artificial": "⚙️", "unknown": "❓"}.get(sentience, "?")
+        sent_icon = {
+            "sapient": "🧠",
+            "semi-sapient": "🐵",
+            "non-sapient": "🐾",
+            "hive-mind": "🐝",
+            "artificial": "⚙️",
+            "unknown": "❓",
+        }.get(sentience, "?")
         print(f"  {sent_icon} {name} [{classification}]")
         print(f"    Sentience: {sentience} | Lifespan: {lifespan} | Pop: {pop} ({trend})")
 
@@ -3343,7 +3230,14 @@ def cmd_economy(args):
             cat = res.get("category", "?")
             rarity = res.get("rarity", "?")
             value = res.get("base_value", "?")
-            rarity_icon = {"abundant": "●●●", "common": "●●", "uncommon": "●", "rare": "◆", "very-rare": "◆◆", "unique": "★"}.get(rarity, "?")
+            rarity_icon = {
+                "abundant": "●●●",
+                "common": "●●",
+                "uncommon": "●",
+                "rare": "◆",
+                "very-rare": "◆◆",
+                "unique": "★",
+            }.get(rarity, "?")
             print(f"  │ {rarity_icon} {name:<22} [{cat}] {value}")
         print(f"  └{'─' * 46}")
 
@@ -3389,7 +3283,7 @@ def cmd_economy(args):
     # Rules summary
     rules = eco.get("rules", {})
     if rules:
-        print(f"\n  Economic rules:")
+        print("\n  Economic rules:")
         print(f"    Currency: {rules.get('primary_currency', '?')}")
         print(f"    Barter: {'yes' if rules.get('barter_common') else 'no'}")
         print(f"    Banking: {'yes' if rules.get('banking_exists') else 'no'}")
@@ -3422,7 +3316,6 @@ def cmd_generate(args):
     locations = entities.get("location", {})
     events = entities.get("event", {})
     world_flags = config.get("world_flags", {})
-    style = config.get("style", {})
 
     # Load economy if present
     eco_file = project_dir / "world" / "economy.yaml"
@@ -3507,7 +3400,7 @@ def cmd_generate(args):
                     lines.append(f"- HAS {flag_name}")
 
     # Generation instructions
-    lines.append(f"\n## Generation Instructions")
+    lines.append("\n## Generation Instructions")
     lines.append(f"Generate {years} years of history for this world.")
     lines.append("Output as a sequence of event YAML frontmatter blocks.\n")
 
@@ -3518,9 +3411,11 @@ def cmd_generate(args):
     elif gen_type == "catastrophe":
         lines.append("Focus on: plagues, natural disasters, magical cataclysms, economic collapses, extinctions.")
     elif gen_type == "mixed":
-        lines.append("Mix of: wars, discoveries, foundings, plagues, trade developments, cultural shifts. Realistic ebb and flow.")
+        lines.append("Mix of: wars, discoveries, foundings, plagues, trade developments, cultural shifts. Realistic "
+            "ebb and flow.")
     else:
-        lines.append("Generate a realistic mix of events. History has periods of peace and conflict, growth and decline.")
+        lines.append("Generate a realistic mix of events. History has periods of peace and conflict, growth and "
+            "decline.")
 
     lines.append("""
 For each event, output:
@@ -3567,8 +3462,8 @@ Rules:
     print(prompt)
     print(f"\n{'=' * 60}")
     print(f"✓ Prompt saved to: {gen_file.relative_to(project_dir)}")
-    print(f"\nFeed this prompt to Claude to generate history events.")
-    print(f"Then save the output as .md files in world/events/")
+    print("\nFeed this prompt to Claude to generate history events.")
+    print("Then save the output as .md files in world/events/")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -3736,7 +3631,7 @@ def cmd_write(args):
                 wc = len(body.split())
                 lines.append(f"### Ch {m.get('number', '?')}: {m.get('title', slug)} ({wc}w)\n")
                 if body and len(body) > 200:
-                    lines.append(f"*(Provide full text when executing)*\n")
+                    lines.append("*(Provide full text when executing)*\n")
                 elif body:
                     lines.append(body + "\n")
 
@@ -3759,7 +3654,8 @@ def cmd_write(args):
     lines.append("\n## Instructions\n")
     lines.append(f"Write {'Chapter ' + str(chapter_num) if chapter_num else 'the next chapter'} following these rules:")
     lines.append(f"1. Match the **{prose_style.get('preset', 'literary')}** prose style exactly")
-    lines.append(f"2. Stay in **{prose_style.get('pov', 'third-limited')}** POV, **{prose_style.get('tense', 'past')}** tense")
+    lines.append(f"2. Stay in **{prose_style.get('pov', 'third-limited')}** POV, "
+        f"**{prose_style.get('tense', 'past')}** tense")
     lines.append("3. Use character machine_descriptions for physical/behavioral consistency")
     lines.append("4. Respect ALL world flags — no anachronisms")
     lines.append("5. Characters use their established voice patterns for dialogue")
@@ -3787,7 +3683,7 @@ def cmd_write(args):
     print(f"\n{'=' * 60}")
     print(f"✓ Full prompt saved to: {write_file.relative_to(project_dir)}")
     print(f"  Context size: {len(prompt):,} chars")
-    print(f"\nFeed this prompt to Claude (ideally with 1M context) to write.")
+    print("\nFeed this prompt to Claude (ideally with 1M context) to write.")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -3862,7 +3758,7 @@ def cmd_story(args):
 
     lines = []
     lines.append(f"# In-Universe Short Story — {config.get('title', 'Untitled')}")
-    lines.append(f"\n## Story Parameters\n")
+    lines.append("\n## Story Parameters\n")
     lines.append(f"- Anchor: {anchor_label}")
     lines.append(f"- Target: {chapters} chapters, ~{words} words")
     lines.append(f"- Protagonist: {protagonist_name if protagonist_slug else 'Generate a new character'}")
@@ -3876,7 +3772,7 @@ def cmd_story(args):
         lines.append(f"- Content Rating: {rating}")
 
     # Style directives
-    lines.append(f"\n## Style Directives\n")
+    lines.append("\n## Style Directives\n")
     lines.append(f"Prose preset: **{prose_style.get('preset', 'literary')}**")
     lines.append(f"POV: {prose_style.get('pov', 'third-limited')}")
     lines.append(f"Tense: {prose_style.get('tense', 'past')}")
@@ -3890,10 +3786,11 @@ def cmd_story(args):
     lines.append(f"Sensory emphasis: {', '.join(prose_style.get('sensory_emphasis', ['sight', 'sound', 'smell']))}")
     visual = style.get("visual", {})
     if visual:
-        lines.append(f"Visual style: {visual.get('preset', '?')}, lighting: {visual.get('lighting', '?')}, mood: {visual.get('mood', '?')}")
+        lines.append(f"Visual style: {visual.get('preset', '?')}, lighting: {visual.get('lighting', '?')}, mood: "
+            f"{visual.get('mood', '?')}")
 
     # World context
-    lines.append(f"\n## World Context\n")
+    lines.append("\n## World Context\n")
     lines.extend(format_world_context_block(ctx))
 
     # Protagonist section
@@ -3911,7 +3808,7 @@ def cmd_story(args):
             lines.append(f"Species: {meta.get('species', '?')}, Age: {meta.get('age', '?')}")
         rels = meta.get("relationships", [])
         if rels:
-            lines.append(f"Relationships:")
+            lines.append("Relationships:")
             for r in rels:
                 if isinstance(r, dict):
                     lines.append(f"  - {r.get('type', '?')}: {r.get('character', r.get('name', '?'))}")
@@ -3947,13 +3844,14 @@ def cmd_story(args):
         lines.append(f"Type: {meta.get('type', '?')}, Significance: {meta.get('significance', '?')}")
         participants = meta.get("participants", [])
         if participants:
-            lines.append(f"Participants: {', '.join(str(p.get('entity', p) if isinstance(p, dict) else p) for p in participants)}")
+            lines.append(f"Participants: "
+                f"{', '.join(str(p.get('entity', p) if isinstance(p, dict) else p) for p in participants)}")
         caused_by = meta.get("caused_by", [])
         if caused_by:
             lines.append(f"Caused by: {', '.join(str(c) for c in caused_by)}")
         leads_to = meta.get("leads_to", [])
         if leads_to:
-            lines.append(f"Leads to: {', '.join(str(l) for l in leads_to)}")
+            lines.append(f"Leads to: {', '.join(str(x) for x in leads_to)}")
         descs = meta.get("descriptions", {}) or {}
         machine = descs.get("machine", {}) or {}
         if machine:
@@ -3971,7 +3869,8 @@ def cmd_story(args):
     # Writing instructions
     words_per_ch = words // chapters if chapters else words
     lines.append("## Writing Instructions\n")
-    lines.append(f"You are writing a self-contained short story set in the world of {config.get('title', 'Untitled')}.\n")
+    lines.append(f"You are writing a self-contained short story set in the world of "
+        f"{config.get('title', 'Untitled')}.\n")
     lines.append("**Structure:**")
     lines.append(f"- {chapters} chapters, approximately {words} words total")
     lines.append(f"- Each chapter: ~{words_per_ch} words, with a clear scene or narrative beat")
@@ -3979,9 +3878,11 @@ def cmd_story(args):
     lines.append("**Constraints:**")
     lines.append("- All world rules (world flags) must be respected — see World Rules section")
     lines.append("- Technology, species, factions, and locations must match the established world")
-    lines.append("- If using existing characters, their personality, voice, and appearance must match their descriptions")
+    lines.append("- If using existing characters, their personality, voice, and appearance must match their "
+        "descriptions")
     lines.append("- The story must be internally consistent with the world timeline")
-    lines.append("- Events in this story should feel like they COULD be canon — they don't contradict established history\n")
+    lines.append("- Events in this story should feel like they COULD be canon — they don't contradict established "
+        "history\n")
     lines.append(f"**Tone:** {tone}\n")
     lines.append("**Output format:**")
     lines.append("For each chapter, output:")
@@ -4014,10 +3915,11 @@ def cmd_story(args):
     print(f"  Characters: {len(ctx['active_characters'])}")
     print(f"  Factions:   {len(ctx['active_factions'])}")
     print(f"  Locations:  {len(ctx['all_locations'])}")
-    print(f"  Events:     {len(ctx['events_before'])} before / {len(ctx['events_during'])} during / {len(ctx['events_after'])} after")
+    print(f"  Events:     {len(ctx['events_before'])} before / {len(ctx['events_during'])} during / "
+        f"{len(ctx['events_after'])} after")
     print(f"\n  Context size: {len(prompt):,} chars")
     print(f"  Saved to: {story_file.relative_to(project_dir)}")
-    print(f"\nFeed this prompt to Claude to generate the story.")
+    print("\nFeed this prompt to Claude to generate the story.")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4110,7 +4012,7 @@ def cmd_campaign(args):
     # Build prompt
     lines = []
     lines.append(f"# D&D Campaign — {config.get('title', 'Untitled')}")
-    lines.append(f"\n## Campaign Parameters\n")
+    lines.append("\n## Campaign Parameters\n")
     lines.append(f"- Setting: {anchor_label}")
     lines.append(f"- Length: {length} ({sessions} session(s))")
     lines.append(f"- Party Level: {level}")
@@ -4119,7 +4021,7 @@ def cmd_campaign(args):
     lines.append(f"- Central Location: {location_name or 'DM choice'}")
 
     # World context
-    lines.append(f"\n## World Context\n")
+    lines.append("\n## World Context\n")
     lines.extend(format_world_context_block(ctx))
 
     # Location Focus
@@ -4291,10 +4193,11 @@ def cmd_campaign(args):
     print(f"  Characters: {len(ctx['active_characters'])}")
     print(f"  Factions:   {len(ctx['active_factions'])}")
     print(f"  Locations:  {len(ctx['all_locations'])}")
-    print(f"  Events:     {len(ctx['events_before'])} before / {len(ctx['events_during'])} during / {len(ctx['events_after'])} after")
+    print(f"  Events:     {len(ctx['events_before'])} before / {len(ctx['events_during'])} during / "
+        f"{len(ctx['events_after'])} after")
     print(f"\n  Context size: {len(prompt):,} chars")
     print(f"  Saved to: {campaign_file.relative_to(project_dir)}")
-    print(f"\nFeed this prompt to Claude to generate the campaign module.")
+    print("\nFeed this prompt to Claude to generate the campaign module.")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4345,42 +4248,138 @@ TSHIRT_SIZES = {
 }
 
 WIZARD_STEPS = [
-    ("basics", "Project Basics", [
-        ("title", "What is the name of your world or project?", None, True),
-        ("genre", "Genre?", ["fantasy", "scifi", "modern", "horror", "post-apocalyptic", "steampunk", "custom"], False),
-        ("project_type", "Project type?", ["novel", "series", "campaign", "game", "worldbook"], False),
-        ("size", "World complexity?", ["S", "M", "L", "XL"], False),
-        ("tone", "Tone / prose style?", ["literary", "pulp", "young-adult", "dark", "gritty", "epic", "litrpg", "cozy", "horror", "hard-sf", "space-opera", "noir", "fairy-tale"], False),
-    ]),
-    ("cosmology", "Cosmology & Physics", [
-        ("creation_myth", "Brief creation myth or origin?", None, False),
-        ("magic_exists", "Does magic exist?", ["yes", "no", "ambiguous"], False),
-        ("calendar_name", "Name of the world's calendar?", None, False),
-    ]),
-    ("geography", "Geography & Climate", [
-        ("world_name", "Name of the primary world/planet/realm?", None, True),
-        ("notable_regions", "Key regions/continents (comma-separated)?", None, False),
-        ("climate_variety", "Climate range?", ["uniform", "moderate-variety", "extreme-variety"], False),
-    ]),
-    ("peoples", "Species & Peoples", [
-        ("species_approach", "Species approach?", ["humans-only", "few-species", "many-species", "cosmic-zoo"], False),
-        ("species_hints", "Specific species to include (comma-separated)?", None, False),
-        ("interbreeding", "Cross-species breeding?", ["yes", "no", "rare-exceptions"], False),
-    ]),
-    ("politics", "Power & Factions", [
-        ("political_structure", "Dominant political structure?", ["monarchy", "republic", "tribal", "theocracy", "empire", "fragmented", "corporate", "mixed"], False),
-        ("conflict_level", "Current geopolitical tension?", ["peaceful", "simmering", "active-conflict", "total-war", "post-war"], False),
-        ("faction_hints", "Key factions (comma-separated)?", None, False),
-    ]),
-    ("history", "History & Timeline", [
-        ("history_depth", "How deep is recorded history?", ["shallow", "moderate", "deep", "ancient"], False),
-        ("pivotal_events", "Pivotal historical events (comma-separated)?", None, False),
-    ]),
-    ("protagonist", "Central Characters", [
-        ("protagonist_name", "Protagonist name?", None, False),
-        ("protagonist_archetype", "Protagonist archetype?", ["reluctant-hero", "chosen-one", "anti-hero", "everyman", "scholar", "outcast", "soldier", "trickster", "generate"], False),
-        ("antagonist_type", "Antagonist type?", ["dark-lord", "political-rival", "nature", "cosmic-force", "self", "organization", "mystery", "generate"], False),
-    ]),
+    (
+        "basics",
+        "Project Basics",
+        [
+            ("title", "What is the name of your world or project?", None, True),
+            (
+                "genre",
+                "Genre?",
+                ["fantasy", "scifi", "modern", "horror", "post-apocalyptic", "steampunk", "custom"],
+                False,
+            ),
+            ("project_type", "Project type?", ["novel", "series", "campaign", "game", "worldbook"], False),
+            ("size", "World complexity?", ["S", "M", "L", "XL"], False),
+            (
+                "tone",
+                "Tone / prose style?",
+                [
+                    "literary",
+                    "pulp",
+                    "young-adult",
+                    "dark",
+                    "gritty",
+                    "epic",
+                    "litrpg",
+                    "cozy",
+                    "horror",
+                    "hard-sf",
+                    "space-opera",
+                    "noir",
+                    "fairy-tale",
+                ],
+                False,
+            ),
+        ],
+    ),
+    (
+        "cosmology",
+        "Cosmology & Physics",
+        [
+            ("creation_myth", "Brief creation myth or origin?", None, False),
+            ("magic_exists", "Does magic exist?", ["yes", "no", "ambiguous"], False),
+            ("calendar_name", "Name of the world's calendar?", None, False),
+        ],
+    ),
+    (
+        "geography",
+        "Geography & Climate",
+        [
+            ("world_name", "Name of the primary world/planet/realm?", None, True),
+            ("notable_regions", "Key regions/continents (comma-separated)?", None, False),
+            ("climate_variety", "Climate range?", ["uniform", "moderate-variety", "extreme-variety"], False),
+        ],
+    ),
+    (
+        "peoples",
+        "Species & Peoples",
+        [
+            (
+                "species_approach",
+                "Species approach?",
+                ["humans-only", "few-species", "many-species", "cosmic-zoo"],
+                False,
+            ),
+            ("species_hints", "Specific species to include (comma-separated)?", None, False),
+            ("interbreeding", "Cross-species breeding?", ["yes", "no", "rare-exceptions"], False),
+        ],
+    ),
+    (
+        "politics",
+        "Power & Factions",
+        [
+            (
+                "political_structure",
+                "Dominant political structure?",
+                ["monarchy", "republic", "tribal", "theocracy", "empire", "fragmented", "corporate", "mixed"],
+                False,
+            ),
+            (
+                "conflict_level",
+                "Current geopolitical tension?",
+                ["peaceful", "simmering", "active-conflict", "total-war", "post-war"],
+                False,
+            ),
+            ("faction_hints", "Key factions (comma-separated)?", None, False),
+        ],
+    ),
+    (
+        "history",
+        "History & Timeline",
+        [
+            ("history_depth", "How deep is recorded history?", ["shallow", "moderate", "deep", "ancient"], False),
+            ("pivotal_events", "Pivotal historical events (comma-separated)?", None, False),
+        ],
+    ),
+    (
+        "protagonist",
+        "Central Characters",
+        [
+            ("protagonist_name", "Protagonist name?", None, False),
+            (
+                "protagonist_archetype",
+                "Protagonist archetype?",
+                [
+                    "reluctant-hero",
+                    "chosen-one",
+                    "anti-hero",
+                    "everyman",
+                    "scholar",
+                    "outcast",
+                    "soldier",
+                    "trickster",
+                    "generate",
+                ],
+                False,
+            ),
+            (
+                "antagonist_type",
+                "Antagonist type?",
+                [
+                    "dark-lord",
+                    "political-rival",
+                    "nature",
+                    "cosmic-force",
+                    "self",
+                    "organization",
+                    "mystery",
+                    "generate",
+                ],
+                False,
+            ),
+        ],
+    ),
 ]
 
 VALIDATION_EDITORS = ["worldrules", "continuity", "geography", "characterization", "lore", "sensitivity"]
@@ -4424,31 +4423,31 @@ def cmd_wizard(args):
                 if choices:
                     lines.append(f"**{field}**: {question}{req_tag}")
                     lines.append(f"  Options: {', '.join(choices)}")
-                    lines.append(f"  Answer: _________________")
+                    lines.append("  Answer: _________________")
                 else:
                     lines.append(f"**{field}**: {question}{req_tag}")
-                    lines.append(f"  Answer: _________________")
+                    lines.append("  Answer: _________________")
             lines.append("")
 
     # ── GENERATION TARGETS ─────────────────────────────────────────────────────
     lines.append("\n## Generation Targets\n")
     lines.append(f"Size **{size}** means generating within these ranges:\n")
-    lines.append(f"| Entity Type     | Min | Max |")
-    lines.append(f"|-----------------|-----|-----|")
+    lines.append("| Entity Type     | Min | Max |")
+    lines.append("|-----------------|-----|-----|")
     entity_keys = ["species", "races", "languages", "characters", "locations",
                    "factions", "items", "events", "lineages", "arcs", "magic_systems"]
     for key in entity_keys:
         mn, mx = sz.get(key, (0, 0))
         lines.append(f"| {key:<15} | {mn:>3} | {mx:>3} |")
 
-    lines.append(f"\n| History         |     |     |")
+    lines.append("\n| History         |     |     |")
     mn_e, mx_e = sz.get("eras", (1, 1))
     mn_y, mx_y = sz.get("history_years", (100, 100))
     lines.append(f"| Eras            | {mn_e:>3} | {mx_e:>3} |")
     lines.append(f"| History (years) | {mn_y:>3} | {mx_y:>3} |")
     lines.append(f"| Gen passes      | {sz.get('generation_passes', 1):>3} |     |")
 
-    lines.append(f"\n| Economy         |     |     |")
+    lines.append("\n| Economy         |     |     |")
     for key in ["currencies", "resources", "trade_routes"]:
         mn, mx = sz.get(key, (0, 0))
         lines.append(f"| {key:<15} | {mn:>3} | {mx:>3} |")
@@ -4467,7 +4466,8 @@ YAML frontmatter + Markdown body matching the WorldBuilder schemas.
 Every visual entity MUST include a `descriptions` block with `machine`, `human`, and `image_prompt` fields:
 - **Characters** (major/protagonist/antagonist/supporting): physical description, attire, voice, demeanor + image_prompt
 - **Locations** (all): architecture, atmosphere, notable features + image_prompt
-- **Factions** (all): `heraldry` block with sigil, colors, motto, and `heraldry.image_prompt` PLUS `descriptions` block with visual_identity, atmosphere, and `descriptions.image_prompt`
+- **Factions** (all): `heraldry` block with sigil, colors, motto, and `heraldry.image_prompt` PLUS `descriptions` \
+block with visual_identity, atmosphere, and `descriptions.image_prompt`
 - **Species** (all): physical appearance, distinctive features + image_prompt of representative individual
 - **Races** (all): physical appearance, distinguishing traits + image_prompt of representative individual
 - **Items** (all): appearance, properties + image_prompt
@@ -4475,7 +4475,10 @@ Every visual entity MUST include a `descriptions` block with `machine`, `human`,
 - **Lineages** (all): `heraldry` block with sigil, colors, motto, and `heraldry.image_prompt`
 - **Events** (major/world-changing only): scene description + image_prompt
 
-Image prompts should describe the SUBJECT ONLY — what to draw, not how to render it. Include physical details, composition, pose, setting, and mood. Do NOT include style/rendering instructions (e.g., "photorealistic", "anime style", "8k", "DSLR", "cinematic lighting") — the rendering style is applied separately via LoRA presets. Do NOT include negative prompts — quality guards (no watermarks, no text, etc.) are injected automatically by the backend.
+Image prompts should describe the SUBJECT ONLY — what to draw, not how to render it. Include physical details, \
+composition, pose, setting, and mood. Do NOT include style/rendering instructions (e.g., "photorealistic", "anime \
+style", "8k", "DSLR", "cinematic lighting") — the rendering style is applied separately via LoRA presets. Do NOT \
+include negative prompts — quality guards (no watermarks, no text, etc.) are injected automatically by the backend.
 
 **REQUIRED: Character Voice Profiles**
 Every character with role protagonist/antagonist/supporting/major MUST include a `voice` block:
@@ -4487,7 +4490,8 @@ voice:
   dialect: "speech register"            # e.g. "formal court speech", "street slang"
   sample_text: "A characteristic line of dialogue for this character"
 ```
-Available voice tags: male, female, deep, high, warm, cold, raspy, smooth, young, old, authoritative, casual, energetic, calm, soft, loud, professional, sultry, resonant, formal, mature.
+Available voice tags: male, female, deep, high, warm, cold, raspy, smooth, young, old, authoritative, casual, \
+energetic, calm, soft, loud, professional, sultry, resonant, formal, mature.
 The sample_text should be 1-2 sentences that capture the character's personality and speech patterns.
 The voice.description is the most important field — it directly drives the TTS voice design. Be vivid and specific.
 Characters from the same location should share accent/dialect unless there's a narrative reason to differ.
@@ -4507,7 +4511,8 @@ regional_defaults:
     dialect: "speech register"
     tags: []
 ```
-Characters from this location inherit these appearance and voice traits unless they override them. This ensures people from the same region sound and look consistent.
+Characters from this location inherit these appearance and voice traits unless they override them. This ensures people \
+from the same region sound and look consistent.
 
 **Generation order:**
 1. Calendar & eras
@@ -4565,7 +4570,7 @@ After all entities are generated, output:
 
 ## Post-Generation Validation\n""")
 
-    lines.append(f"""After ALL entities are generated, run these validation checks:
+    lines.append("""After ALL entities are generated, run these validation checks:
 
 | Pass | Editor          | Checks                                          |
 |------|-----------------|--------------------------------------------------|
@@ -4583,7 +4588,6 @@ Flag unresolvable issues for human review.
     prompt = "\n".join(lines)
 
     # Save the wizard prompt
-    template_dir = Path(__file__).resolve().parent.parent / "templates" / "wizard"
     output_dir = Path.cwd()
 
     # If we have a project context, save there; otherwise save to cwd
@@ -4618,9 +4622,10 @@ Flag unresolvable issues for human review.
     print(f"{'=' * 60}")
     print(f"✓ Wizard prompt saved to: {wizard_file}")
     print(f"  Prompt size: {len(prompt):,} chars")
-    print(f"\nFeed this to Claude to {'auto-generate your world' if mode == 'yolo' else 'walk through world creation'}.")
+    print(f"\nFeed this to Claude to "
+        f"{'auto-generate your world' if mode == 'yolo' else 'walk through world creation'}.")
     if mode == "yolo":
-        print(f"  Recommended: use Opus with 1M context for best results.")
+        print("  Recommended: use Opus with 1M context for best results.")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4678,7 +4683,7 @@ def _target_audience(grade):
 
 def _compute_readability(text):
     """Compute readability metrics for a block of text. Returns dict or None if too short."""
-    import textstat
+    import textstat  # pyright: ignore[reportMissingImports]
 
     words = text.split()
     if len(words) < 10:
@@ -4754,7 +4759,7 @@ def _find_outliers(values, threshold=1.5):
 def cmd_readability(args):
     """Analyse prose readability at paragraph, page, chapter, and story level."""
     try:
-        import textstat
+        import textstat  # noqa: F401 — availability check  # pyright: ignore[reportMissingImports]
     except ImportError:
         print("Error: textstat is required. Install it: uv pip install textstat")
         sys.exit(1)
@@ -4845,7 +4850,8 @@ def cmd_readability(args):
 
             print(f"  {ch_label} ({wc:,} words, ~{rt:.0f} min read)")
             print(f"    Flesch-Kincaid Grade:  {metrics['fk_grade']:.1f}")
-            print(f"    Flesch Reading Ease:   {metrics['reading_ease']:.1f}  ({_reading_ease_label(metrics['reading_ease'])})")
+            print(f"    Flesch Reading Ease:   {metrics['reading_ease']:.1f}  "
+                f"({_reading_ease_label(metrics['reading_ease'])})")
             print(f"    Gunning Fog:           {metrics['gunning_fog']:.1f}")
             print(f"    Coleman-Liau:          {metrics['coleman_liau']:.1f}")
             print(f"    Avg sentence length:   {metrics['avg_sentence_len']:.1f} words")
@@ -4876,7 +4882,8 @@ def cmd_readability(args):
                         vi += 1
                 for oi, val, mu, sd, label in outliers:
                     real_idx = valid_idx_map[oi]
-                    msg = f"⚠ Paragraph {real_idx + 1} (grade {val:.1f}): {label} than chapter average ({mu:.1f} ± {sd:.1f})"
+                    msg = (f"⚠ Paragraph {real_idx + 1} (grade {val:.1f}): {label} than chapter average ({mu:.1f} ± "
+                        f"{sd:.1f})")
                     chapter_para_outliers.append(msg)
                     all_outliers.append(f"  [{story_name}] {ch_label}: {msg}")
                     if verbose:
@@ -4893,7 +4900,8 @@ def cmd_readability(args):
                     if len(page_grades) >= 3:
                         page_outliers = _find_outliers(page_grades)
                         for oi, val, mu, sd, label in page_outliers:
-                            print(f"    ⚠ Page {oi + 1} (grade {val:.1f}): {label} than chapter average ({mu:.1f} ± {sd:.1f})")
+                            print(f"    ⚠ Page {oi + 1} (grade {val:.1f}): {label} than chapter average ({mu:.1f} ± "
+                                f"{sd:.1f})")
 
             if verbose and chapter_para_outliers:
                 print()
@@ -4945,7 +4953,8 @@ def cmd_readability(args):
                 entity_metrics.append((etype, slug, metrics))
                 if verbose:
                     print(f"  {etype}/{slug} ({metrics['word_count']} words)")
-                    print(f"    Grade: {metrics['fk_grade']:.1f}  |  Ease: {metrics['reading_ease']:.1f}  |  Fog: {metrics['gunning_fog']:.1f}")
+                    print(f"    Grade: {metrics['fk_grade']:.1f}  |  Ease: {metrics['reading_ease']:.1f}  |  Fog: "
+                        f"{metrics['gunning_fog']:.1f}")
 
         if entity_metrics:
             grades = [m["fk_grade"] for _, _, m in entity_metrics]
@@ -5087,7 +5096,8 @@ def main():
     p_story.add_argument("--protagonist", default="generate", help="Character slug or 'generate'")
     p_story.add_argument("--tone", help="Tone override")
     p_story.add_argument("--subgenre", help="Subgenre (e.g. hard-sf, space-opera, cyberpunk, military-sf, noir)")
-    p_story.add_argument("--rating", choices=["young-adult", "adult", "mature"], default=None, help="Content rating override")
+    p_story.add_argument("--rating", choices=["young-adult", "adult", "mature"], default=None, help="Content rating "
+        "override")
     p_story.add_argument("--chapters", type=int, default=12, help="Target chapter count")
     p_story.add_argument("--words", type=int, default=30000, help="Target word count")
     p_story.add_argument("--project", help="Project path")
@@ -5098,7 +5108,9 @@ def main():
     p_campaign.add_argument("--era", help="Era prefix for time period")
     p_campaign.add_argument("--year", type=int, help="Specific year (with --era)")
     p_campaign.add_argument("--present", action="store_true", help="Set in present day")
-    p_campaign.add_argument("--length", choices=["one-shot", "short", "custom"], default="one-shot", help="Campaign length")
+    p_campaign.add_argument(
+        "--length", choices=["one-shot", "short", "custom"], default="one-shot", help="Campaign length"
+    )
     p_campaign.add_argument("--sessions", type=int, default=1, help="Session count (with --length custom)")
     p_campaign.add_argument("--level", default="1-4", help="Party level range")
     p_campaign.add_argument("--tone", help="Campaign tone override")

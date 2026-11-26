@@ -26,8 +26,16 @@ _job_lock = threading.Lock()
 _job_queue: list[tuple[dict, Path]] = []
 _queue_lock = threading.Lock()
 _worker_started = False
+_worker_lock = threading.Lock()
 
 MODEL_ID = "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
+
+# Request limits
+MAX_TEXT_CHARS = 1000         # roughly a minute of speech
+MAX_INSTRUCT_CHARS = 1000
+MIN_SPEED, MAX_SPEED = 0.5, 2.0
+MAX_QUEUED_JOBS = 50          # pending jobs; further submissions are rejected
+MAX_FINISHED_JOBS = 200       # finished jobs kept in memory for status polling
 
 
 def build_voice_instruct(
@@ -120,7 +128,7 @@ def _get_model():
             return _model
         logger.info("Loading Qwen3-TTS VoiceDesign (%s)...", MODEL_ID)
         try:
-            from mlx_audio.tts.utils import load_model
+            from mlx_audio.tts.utils import load_model  # pyright: ignore[reportMissingImports]
             _model = load_model(MODEL_ID)
             logger.info("Qwen3-TTS VoiceDesign loaded.")
         except Exception as e:
@@ -130,8 +138,15 @@ def _get_model():
 
 
 def preload_model():
-    """Pre-load model in background thread (called on webapp startup)."""
-    t = threading.Thread(target=_get_model, daemon=True)
+    """Pre-load model in background thread (called on webapp startup).
+
+    Holds mlx_lock so this can't load concurrently with the image model (OOM risk).
+    """
+    def _preload():
+        with mlx_lock:
+            _get_model()
+
+    t = threading.Thread(target=_preload, daemon=True, name="voicegen-preload")
     t.start()
 
 
@@ -174,7 +189,7 @@ def _worker_loop():
             continue
 
         job, project_dir = item
-        job["status"] = "generating"
+        _update_job(job, status="generating")
 
         with mlx_lock:
             _run_job(job, project_dir)
@@ -182,11 +197,43 @@ def _worker_loop():
 
 def _ensure_worker():
     global _worker_started
-    if _worker_started:
-        return
-    _worker_started = True
+    with _worker_lock:
+        if _worker_started:
+            return
+        _worker_started = True
     t = threading.Thread(target=_worker_loop, daemon=True, name="voicegen-worker")
     t.start()
+
+
+def _update_job(job: dict, **fields) -> None:
+    """Mutate a job under _job_lock so pollers never see a half-updated job."""
+    with _job_lock:
+        job.update(fields)
+
+
+def _prune_finished_jobs() -> None:
+    """Drop the oldest finished jobs beyond MAX_FINISHED_JOBS. Caller must hold _job_lock."""
+    finished = [j for j in _jobs.values() if j.get("status") in ("completed", "failed")]
+    if len(finished) <= MAX_FINISHED_JOBS:
+        return
+    finished.sort(key=lambda j: j.get("completed_at") or j.get("created_at") or 0)
+    for j in finished[: len(finished) - MAX_FINISHED_JOBS]:
+        _jobs.pop(j["job_id"], None)
+
+
+def validate_request(text: object, speed: object = 1.0, instruct: object = "") -> tuple[str, float]:
+    """Validate voice request input. Raises ValueError with a user-facing message."""
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("text is required")
+    if len(text) > MAX_TEXT_CHARS:
+        raise ValueError(f"text must be at most {MAX_TEXT_CHARS} characters")
+    if not isinstance(instruct, str) or len(instruct) > MAX_INSTRUCT_CHARS:
+        raise ValueError(f"instruct must be a string of at most {MAX_INSTRUCT_CHARS} characters")
+    if isinstance(speed, bool) or not isinstance(speed, (int, float)):
+        raise ValueError("speed must be a number")
+    if not MIN_SPEED <= speed <= MAX_SPEED:
+        raise ValueError(f"speed must be between {MIN_SPEED} and {MAX_SPEED}")
+    return text, float(speed)
 
 
 def submit_job(
@@ -201,7 +248,11 @@ def submit_job(
     force: bool = False,
     language: str = "English",
 ) -> dict:
-    """Submit a voice generation job. Returns job dict immediately."""
+    """Submit a voice generation job. Returns job dict immediately.
+
+    Raises ValueError if text or speed are invalid (see validate_request).
+    """
+    text, speed = validate_request(text, speed, instruct)
     job_id = str(uuid.uuid4())[:8]
 
     # Check cache first
@@ -237,13 +288,16 @@ def submit_job(
         "error": None,
     }
 
-    with _job_lock:
-        _jobs[job_id] = job
-
     with _queue_lock:
+        if len(_job_queue) >= MAX_QUEUED_JOBS:
+            return {"job_id": None, "status": "failed", "error": "Voice queue is full — try again later."}
+        with _job_lock:
+            _jobs[job_id] = job
+            _prune_finished_jobs()
+            snapshot = dict(job)
         _job_queue.append((job, project_dir))
 
-    return job
+    return snapshot
 
 
 def _run_job(job: dict, project_dir: Path):
@@ -251,14 +305,14 @@ def _run_job(job: dict, project_dir: Path):
     try:
         model = _get_model()
         if model is None:
-            job["status"] = "failed"
-            job["error"] = "TTS model not available (still loading?)"
+            _update_job(job, status="failed", error="TTS model not available (still loading?)",
+                        completed_at=time.time())
             return
 
-        import numpy as np
-        import soundfile as sf
+        import numpy as np  # pyright: ignore[reportMissingImports]
+        import soundfile as sf  # pyright: ignore[reportMissingImports]
 
-        logger.debug("Generating voice: instruct=%r text=%r", job["instruct"], job["text"])
+        logger.debug("Generating voice: instruct=%r text_chars=%d", job["instruct"], len(job["text"]))
 
         results = list(model.generate(
             text=job["text"],
@@ -286,26 +340,31 @@ def _run_job(job: dict, project_dir: Path):
 
         sf.write(str(output_path), audio, sample_rate)
 
-        job["status"] = "completed"
-        job["filename"] = filename
-        job["url"] = f"/api/project/{job['project_slug']}/voices/{filename}"
-        job["completed_at"] = time.time()
+        _update_job(
+            job,
+            status="completed",
+            filename=filename,
+            url=f"/api/project/{job['project_slug']}/voices/{filename}",
+            completed_at=time.time(),
+        )
         logger.info("Voice generated: %s (%.1fs audio)",
                      filename, len(audio) / sample_rate)
 
     except Exception as e:
-        job["status"] = "failed"
-        job["error"] = str(e)
+        _update_job(job, status="failed", error=str(e), completed_at=time.time())
         logger.error("Voice generation failed: %s", e)
 
 
 def get_job(job_id: str) -> dict | None:
-    return _jobs.get(job_id)
+    """Return a snapshot of a job (a copy, so callers can't race the worker)."""
+    with _job_lock:
+        job = _jobs.get(job_id)
+        return dict(job) if job is not None else None
 
 
 def get_all_jobs(project: str | None = None) -> list[dict]:
     with _job_lock:
-        jobs = list(_jobs.values())
+        jobs = [dict(j) for j in _jobs.values()]
     if project:
         jobs = [j for j in jobs if j.get("project_slug") == project]
     return sorted(jobs, key=lambda j: j.get("created_at", 0), reverse=True)

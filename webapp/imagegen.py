@@ -28,7 +28,7 @@ from mlx_lock import mlx_lock
 # (voicegen loads Qwen3-TTS in parallel, partially resolving the lazy module
 # and blocking mflux's later import of PreTrainedTokenizer).
 try:
-    from transformers import PreTrainedTokenizer  # noqa: F401
+    from transformers import PreTrainedTokenizer  # noqa: F401  # pyright: ignore[reportMissingImports]
 except ImportError:
     pass
 
@@ -44,6 +44,14 @@ MODEL_PATH = "filipstrand/Z-Image-Turbo-mflux-4bit"  # Pre-quantized — no on-t
 DEFAULT_STEPS = 9             # Z-Image-Turbo sweet spot
 DEFAULT_WIDTH = 768
 DEFAULT_HEIGHT = 768
+
+# Request limits — match the web UI's input ranges. Larger sizes risk an OOM kill.
+MAX_STEPS = 20
+MIN_SIZE, MAX_SIZE = 256, 2048
+MAX_SEED = 2**32 - 1
+MAX_QUEUED_JOBS = 50          # pending jobs; further submissions are rejected
+MAX_FINISHED_JOBS = 200       # finished jobs kept in memory for status polling
+MAX_PROMPT_CHARS = 2000
 
 # ─── Style Presets with LoRAs ────────────────────────────────────────────────
 # Each style uses a Z-Image-Turbo base model with an optional LoRA.
@@ -85,6 +93,45 @@ STYLE_PRESETS = {
 }
 
 
+def normalise_style(style: object) -> str:
+    """Map a requested style to a known preset key ("default" if unknown).
+
+    Loaded models are cached per style key, so an unvalidated key would let every
+    new string load another multi-GB model.
+    """
+    return style if isinstance(style, str) and style in STYLE_PRESETS else "default"
+
+
+def validate_params(
+    steps: object = DEFAULT_STEPS,
+    width: object = DEFAULT_WIDTH,
+    height: object = DEFAULT_HEIGHT,
+    seed: object = None,
+) -> tuple[int, int, int, Optional[int]]:
+    """Validate generation parameters from a request. Raises ValueError with a user-facing message."""
+
+    def as_int(name: str, value: object, lo: int, hi: int) -> int:
+        if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+            raise ValueError(f"{name} must be an integer")
+        try:
+            n = int(value)
+        except (TypeError, ValueError, OverflowError):  # OverflowError: JSON Infinity
+            raise ValueError(f"{name} must be an integer") from None
+        if isinstance(value, float) and n != value:
+            raise ValueError(f"{name} must be an integer")
+        if not lo <= n <= hi:
+            raise ValueError(f"{name} must be between {lo} and {hi}")
+        return n
+
+    steps_i = as_int("steps", steps, 1, MAX_STEPS)
+    width_i = as_int("width", width, MIN_SIZE, MAX_SIZE)
+    height_i = as_int("height", height, MIN_SIZE, MAX_SIZE)
+    if width_i % 16 or height_i % 16:
+        raise ValueError("width and height must be multiples of 16")
+    seed_i = None if seed in (None, "") else as_int("seed", seed, 0, MAX_SEED)
+    return steps_i, width_i, height_i, seed_i
+
+
 def get_style_presets() -> dict:
     """Return available style presets for the frontend."""
     return {
@@ -101,7 +148,7 @@ def _check_mlx() -> bool:
     if _mlx_available is not None:
         return _mlx_available
     try:
-        import mlx.core  # noqa: F401
+        import mlx.core  # noqa: F401  # pyright: ignore[reportMissingImports]
         _mlx_available = True
     except ImportError:
         _mlx_available = False
@@ -112,7 +159,7 @@ def _check_mlx() -> bool:
 def _check_mflux() -> bool:
     """Check if mflux is importable."""
     try:
-        import mflux  # noqa: F401
+        import mflux  # noqa: F401  # pyright: ignore[reportMissingImports]
         return True
     except ImportError:
         return False
@@ -121,6 +168,7 @@ def _check_mflux() -> bool:
 def _load_model(style: str = "default"):
     """Load Z-Image-Turbo model with style-specific LoRA. Thread-safe lazy singleton per style."""
     global _load_error
+    style = normalise_style(style)
 
     with _model_lock:
         if style in _models:
@@ -136,7 +184,7 @@ def _load_model(style: str = "default"):
         preset = STYLE_PRESETS.get(style, STYLE_PRESETS["default"])
 
         try:
-            from mflux.models.z_image import ZImageTurbo
+            from mflux.models.z_image import ZImageTurbo  # pyright: ignore[reportMissingImports]
 
             lora_desc = ""
             if preset["lora_paths"]:
@@ -296,6 +344,7 @@ _jobs_lock = threading.Lock()
 _job_queue = []
 _queue_lock = threading.Lock()
 _worker_started = False
+_worker_lock = threading.Lock()
 
 
 def _worker_loop():
@@ -342,11 +391,22 @@ def _worker_loop():
 
 def _ensure_worker():
     global _worker_started
-    if _worker_started:
-        return
-    _worker_started = True
+    with _worker_lock:
+        if _worker_started:
+            return
+        _worker_started = True
     t = threading.Thread(target=_worker_loop, daemon=True, name="imagegen-worker")
     t.start()
+
+
+def _prune_finished_jobs():
+    """Drop the oldest finished jobs beyond MAX_FINISHED_JOBS. Caller must hold _jobs_lock."""
+    finished = [j for j in _jobs.values() if j.get("status") in ("complete", "failed")]
+    if len(finished) <= MAX_FINISHED_JOBS:
+        return
+    finished.sort(key=lambda j: j.get("completed_at") or 0)
+    for j in finished[: len(finished) - MAX_FINISHED_JOBS]:
+        _jobs.pop(j["job_id"], None)
 
 
 _PREVIEW_DIR = Path(__file__).parent.parent / "logs" / "previews"
@@ -402,7 +462,7 @@ class _StepPreviewCallback:
 
         # Decode latents to a preview image
         try:
-            from mflux.utils.image_util import ImageUtil
+            from mflux.utils.image_util import ImageUtil  # pyright: ignore[reportMissingImports]
             unpack = self._latent_creator_cls.unpack_latents(
                 latents=latents, height=config.height, width=config.width,
             )
@@ -512,7 +572,15 @@ def submit_job(
     style: str = "default",
     cache_subdir: str = "output/images",
 ) -> dict:
-    """Submit an image generation job. Returns immediately with a job_id."""
+    """Submit an image generation job. Returns immediately with a job_id.
+
+    Raises ValueError if steps/width/height/seed are out of range (see validate_params).
+    """
+    if not isinstance(prompt, str) or len(prompt) > MAX_PROMPT_CHARS:
+        raise ValueError(f"prompt must be a string of at most {MAX_PROMPT_CHARS} characters")
+    style = normalise_style(style)
+    steps, width, height, seed = validate_params(steps, width, height, seed)
+
     # Enrich prompt with style and context
     enriched = enrich_prompt(prompt, entity_meta, project_config, style=style)
 
@@ -539,6 +607,7 @@ def submit_job(
             }
             with _jobs_lock:
                 _jobs[job_id] = job
+                _prune_finished_jobs()
             return job
 
     if not _check_mlx():
@@ -578,10 +647,12 @@ def submit_job(
         "cache_subdir": cache_subdir,
     }
 
-    with _jobs_lock:
-        _jobs[job_id] = job
-
     with _queue_lock:
+        if len(_job_queue) >= MAX_QUEUED_JOBS:
+            return {"job_id": None, "status": "failed", "error": "Image queue is full — try again later."}
+        with _jobs_lock:
+            _jobs[job_id] = job
+            _prune_finished_jobs()
         _job_queue.append(job)
 
     return _sanitize_job(job)
@@ -595,7 +666,7 @@ def get_job(job_id: str) -> Optional[dict]:
     return _sanitize_job(job)
 
 
-def get_all_jobs(project_slug: str = None) -> list:
+def get_all_jobs(project_slug: Optional[str] = None) -> list:
     with _jobs_lock:
         jobs = list(_jobs.values())
     result = []
@@ -671,8 +742,10 @@ def preload_model():
             print("[imagegen] mflux not installed — run: pip install mflux")
             return
 
-        # Load the default (no-LoRA) model first — it's the fastest to load
-        model = _load_model("default")
+        # Load the default (no-LoRA) model first — it's the fastest to load.
+        # Hold mlx_lock so this can't load concurrently with the voice model (OOM risk).
+        with mlx_lock:
+            model = _load_model("default")
         if model is not None:
             print("[imagegen] Default model pre-loaded and ready")
         else:

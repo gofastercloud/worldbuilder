@@ -1,40 +1,90 @@
 #!/usr/bin/env python3
 """WorldBuilder Web App — Local dev server with API endpoints."""
 
-import logging
-import os
-import sys
 import json
+import logging
 import re
+import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from flask import Flask, jsonify, request, render_template, send_from_directory
+
+import yaml
+from flask import Flask, abort, jsonify, render_template, request, send_from_directory
 
 # Add parent dir so we can import worldbuilder helpers
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-import yaml
+from entity_io import parse_frontmatter, slugify
 
 # ─── Image backend ───────────────────────────────────────────────────────────
 # Z-Image-Turbo via mflux (MLX-native, Apple Silicon)
-
 from imagegen import (
-    get_status as imagegen_status, get_cached_image,
-    submit_job, get_job, get_all_jobs, get_pending_completions,
-    preload_model, enrich_prompt, get_style_presets,
-    DEFAULT_STEPS, DEFAULT_WIDTH, DEFAULT_HEIGHT,
+    DEFAULT_HEIGHT,
+    DEFAULT_STEPS,
+    DEFAULT_WIDTH,
+    enrich_prompt,
+    get_all_jobs,
+    get_cached_image,
+    get_job,
+    get_pending_completions,
     get_preview_path,
+    get_style_presets,
+    preload_model,
+    submit_job,
 )
-
-from voicegen import (
-    get_status as voicegen_status, get_cached_voice, build_voice_instruct,
-    submit_job as voice_submit_job, get_job as voice_get_job,
-    get_all_jobs as voice_get_all_jobs,
-    preload_model as voice_preload_model,
-    get_queue_length as voice_queue_length,
-)
+from imagegen import get_status as imagegen_status
+from voicegen import build_voice_instruct, get_cached_voice
+from voicegen import get_job as voice_get_job
+from voicegen import get_queue_length as voice_queue_length
+from voicegen import get_status as voicegen_status
+from voicegen import preload_model as voice_preload_model
+from voicegen import submit_job as voice_submit_job
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
+
+
+@app.errorhandler(400)
+@app.errorhandler(404)
+def handle_api_error(err):
+    if request.path.startswith("/api/"):
+        return jsonify({"error": getattr(err, "description", "Error")}), err.code
+    return err
+
+
+# ─── Request hardening ──────────────────────────────────────────────────────
+# The server binds to 127.0.0.1, but a malicious web page can still reach it via
+# DNS rebinding (wrong Host header) or a cross-site form POST (non-JSON body).
+
+ALLOWED_HOSTS = {"localhost", "127.0.0.1", "[::1]"}
+
+CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "  # inline onclick handlers
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: blob:; "
+    "media-src 'self' blob:; "
+    "connect-src 'self'; "
+    "object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+)
+
+
+@app.before_request
+def check_request_origin():
+    host = request.host.rsplit(":", 1)[0] if not request.host.endswith("]") else request.host
+    if host not in ALLOWED_HOSTS:
+        return jsonify({"error": "Host not allowed"}), 403
+    # State-changing API calls must be JSON: browsers can't send that cross-site without a CORS preflight
+    if request.method == "POST" and request.path.startswith("/api/") and not request.is_json:
+        return jsonify({"error": "Content-Type must be application/json"}), 415
+    return None
+
+
+@app.after_request
+def set_security_headers(response):
+    response.headers.setdefault("Content-Security-Policy", CONTENT_SECURITY_POLICY)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    return response
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -68,12 +118,36 @@ def find_projects():
 
 
 def resolve_project_dir(slug):
-    """Find the actual directory for a project slug, checking worlds/ first."""
+    """Find the actual directory for a project slug, checking worlds/ first.
+
+    Returns None for unknown slugs and for anything that isn't a single path
+    component (e.g. "..", "a/b"), so a slug can never escape PROJECTS_ROOTS.
+    """
+    if not slug or slug != Path(slug).name or slug.startswith("."):
+        return None
     for root in PROJECTS_ROOTS:
         p = root / slug
         if p.is_dir() and (p / "project.yaml").exists():
             return p
     return None
+
+
+def json_body() -> dict:
+    """The request's JSON object body ({} if empty). Aborts with 400 if it isn't an object."""
+    body = request.get_json(silent=True)
+    if body is None:
+        return {}
+    if not isinstance(body, dict):
+        abort(400, description="Request body must be a JSON object")
+    return body
+
+
+def require_project_dir(slug) -> Path:
+    """Like resolve_project_dir, but aborts the request with a 404 if not found."""
+    p = resolve_project_dir(slug)
+    if p is None:
+        abort(404, description="Project not found")
+    return p
 
 
 def load_project(slug):
@@ -85,10 +159,6 @@ def load_project(slug):
         return yaml.safe_load(f) or {}
 
 
-def slugify(name):
-    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-
-
 ENTITY_DIRS = {
     "character": "characters", "location": "locations", "faction": "factions",
     "item": "items", "magic-system": "magic-systems", "arc": "arcs",
@@ -98,16 +168,9 @@ ENTITY_DIRS = {
 
 
 def load_entity_file(filepath):
-    """Parse a YAML frontmatter + Markdown file."""
-    with open(filepath) as f:
-        content = f.read()
-    if content.startswith("---"):
-        parts = content.split("---", 2)
-        if len(parts) >= 3:
-            meta = yaml.safe_load(parts[1]) or {}
-            body = parts[2].strip()
-            return {"meta": meta, "body": body, "file": str(filepath)}
-    return {"meta": {}, "body": content, "file": str(filepath)}
+    """Parse a YAML frontmatter + Markdown file. Invalid frontmatter yields empty meta, not a crash."""
+    meta, body = parse_frontmatter(filepath)
+    return {"meta": meta if isinstance(meta, dict) else {}, "body": body.strip(), "file": str(filepath)}
 
 
 def _resolve_location_meta(entities: dict, character_meta: dict) -> dict | None:
@@ -131,8 +194,8 @@ def _resolve_location_meta(entities: dict, character_meta: dict) -> dict | None:
 
 
 def collect_entities(project_slug):
-    """Collect all entities for a project."""
-    project_dir = resolve_project_dir(project_slug)
+    """Collect all entities for a project. Aborts with 404 if the project doesn't exist."""
+    project_dir = require_project_dir(project_slug)
     world_dir = project_dir / "world"
     entities = {}
     for etype, dirname in ENTITY_DIRS.items():
@@ -231,7 +294,7 @@ def api_entities(slug, etype):
         return jsonify({"error": f"Unknown entity type: {etype}"}), 404
 
     q = request.args.get("q", "").lower()
-    project_dir = resolve_project_dir(slug)
+    project_dir = require_project_dir(slug)
     project_config = load_project(slug)
     results = []
     for s, data in entities[etype].items():
@@ -244,11 +307,17 @@ def api_entities(slug, etype):
             if not body_match and not meta_match:
                 continue
         # Check for cached image
-        image_prompt = (meta.get("descriptions") or {}).get("image_prompt") or (meta.get("heraldry") or {}).get("image_prompt")
+        image_prompt = (meta.get("descriptions") or {}).get("image_prompt") or (meta.get("heraldry") or {}).get(
+            "image_prompt"
+        )
         image_url = None
         if image_prompt:
             for style in ("photorealistic", "default", "anime", "cartoon"):
-                cached = get_cached_image(project_dir, s, enrich_prompt(image_prompt, entity_meta=meta, project_config=project_config, style=style))
+                cached = get_cached_image(
+                    project_dir,
+                    s,
+                    enrich_prompt(image_prompt, entity_meta=meta, project_config=project_config, style=style),
+                )
                 if cached:
                     image_url = f"/api/project/{slug}/images/{cached}"
                     break
@@ -329,7 +398,11 @@ def api_geography(slug):
             dest = route.get("to") or route.get("destination")
             if dest:
                 methods = route.get("methods", [])
-                modes = [md.get("mode", "?") for md in methods if isinstance(md, dict)] if methods else [route.get("method", "?")]
+                modes = (
+                    [md.get("mode", "?") for md in methods if isinstance(md, dict)]
+                    if methods
+                    else [route.get("method", "?")]
+                )
                 links.append({
                     "source": s,
                     "target": dest,
@@ -351,7 +424,9 @@ def api_families(slug):
         for char_slug, char_data in characters.items():
             m = char_data["meta"]
             lin_ref = m.get("lineage") or (m.get("family_links") or {}).get("lineage", "")
-            if lin_ref and (slugify(lin_ref) == lin_slug or lin_ref.lower() == lin_data["meta"].get("name", "").lower()):
+            if lin_ref and (
+                slugify(lin_ref) == lin_slug or lin_ref.lower() == lin_data["meta"].get("name", "").lower()
+            ):
                 family_links = m.get("family_links", {})
                 members.append({
                     "slug": char_slug,
@@ -459,6 +534,8 @@ def api_economy(slug):
 @app.route("/api/project/<slug>/flags")
 def api_flags(slug):
     config = load_project(slug)
+    if config is None:
+        return jsonify({"error": "Project not found"}), 404
     return jsonify(config.get("world_flags", {}))
 
 
@@ -533,31 +610,36 @@ def api_generate_entity_image(slug, etype, entity_slug):
             "error": "No visualization available for this entity — missing image_prompt in YAML frontmatter."
         }), 400
 
-    body = request.get_json(silent=True) or {}
+    body = json_body()
 
     project_config = load_project(slug)
 
     # Resolve style: explicit request > project visual_style > default
     style = body.get("style")
     if not style and project_config:
-        style = project_config.get("visual_style") or project_config.get("style", {}).get("visual", "")
+        visual = (project_config.get("style") or {}).get("visual", "")
+        # style.visual is either a preset name or a block like {preset: ..., lighting: ...}
+        style = project_config.get("visual_style") or (visual.get("preset") if isinstance(visual, dict) else visual)
 
-    job = submit_job(
-        prompt=image_prompt,
-        project_dir=resolve_project_dir(slug),
-        project_slug=slug,
-        entity_slug=entity_slug,
-        entity_name=meta.get("name", entity_slug),
-        entity_type=etype,
-        seed=body.get("seed"),
-        force=body.get("force", False),
-        steps=body.get("steps", DEFAULT_STEPS),
-        width=body.get("width", DEFAULT_WIDTH),
-        height=body.get("height", DEFAULT_HEIGHT),
-        entity_meta=meta,
-        project_config=project_config,
-        style=style or "photorealistic",
-    )
+    try:
+        job = submit_job(
+            prompt=image_prompt,
+            project_dir=require_project_dir(slug),
+            project_slug=slug,
+            entity_slug=entity_slug,
+            entity_name=meta.get("name", entity_slug),
+            entity_type=etype,
+            seed=body.get("seed"),
+            force=body.get("force", False),
+            steps=body.get("steps", DEFAULT_STEPS),
+            width=body.get("width", DEFAULT_WIDTH),
+            height=body.get("height", DEFAULT_HEIGHT),
+            entity_meta=meta,
+            project_config=project_config,
+            style=style or "photorealistic",
+        )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     return jsonify(job)
 
@@ -569,8 +651,11 @@ def api_playground_generate():
     Expects JSON: {prompt, seed?, steps?, width?, height?}
     Images are saved to a shared playground cache directory.
     """
-    body = request.get_json(silent=True) or {}
-    prompt = (body.get("prompt") or "").strip()
+    body = json_body()
+    prompt = body.get("prompt") or ""
+    if not isinstance(prompt, str):
+        return jsonify({"error": "prompt must be a string"}), 400
+    prompt = prompt.strip()
     if not prompt:
         return jsonify({"error": "prompt is required"}), 400
 
@@ -580,21 +665,24 @@ def api_playground_generate():
     # Build a slug from the prompt (first few words)
     slug = re.sub(r"[^a-z0-9]+", "-", prompt[:40].lower()).strip("-") or "image"
 
-    job = submit_job(
-        prompt=prompt,
-        project_dir=PLAYGROUND_DIR.parent,
-        project_slug="_playground",
-        entity_slug=slug,
-        entity_name=prompt[:60],
-        entity_type="playground",
-        seed=body.get("seed"),
-        force=body.get("force", False),
-        steps=body.get("steps", DEFAULT_STEPS),
-        width=body.get("width", DEFAULT_WIDTH),
-        height=body.get("height", DEFAULT_HEIGHT),
-        style=body.get("style", "photorealistic"),
-        cache_subdir="images",
-    )
+    try:
+        job = submit_job(
+            prompt=prompt,
+            project_dir=PLAYGROUND_DIR.parent,
+            project_slug="_playground",
+            entity_slug=slug,
+            entity_name=prompt[:60],
+            entity_type="playground",
+            seed=body.get("seed"),
+            force=body.get("force", False),
+            steps=body.get("steps", DEFAULT_STEPS),
+            width=body.get("width", DEFAULT_WIDTH),
+            height=body.get("height", DEFAULT_HEIGHT),
+            style=body.get("style", "photorealistic"),
+            cache_subdir="images",
+        )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     return jsonify(job)
 
@@ -660,7 +748,7 @@ def api_check_entity_image(slug, etype, entity_slug):
     # key matches.  Check the most common style first (photorealistic),
     # then fall back to default.
     project_config = load_project(slug)
-    project_dir = resolve_project_dir(slug)
+    project_dir = require_project_dir(slug)
 
     for style in ("photorealistic", "default", "anime", "cartoon"):
         enriched = enrich_prompt(image_prompt, meta, project_config, style=style)
@@ -736,10 +824,15 @@ def api_generate_entity_voice(slug, etype, entity_slug):
     voice_config = meta.get("voice", {}) or {}
     sample_text = voice_config.get("sample_text", "")
 
-    body = request.get_json(silent=True) or {}
+    body = json_body()
+
+    text_raw = body.get("text") or ""
+    instruct_raw = body.get("instruct") or ""
+    if not isinstance(text_raw, str) or not isinstance(instruct_raw, str):
+        return jsonify({"error": "text and instruct must be strings"}), 400
 
     # Allow custom text from request body, fall back to sample_text
-    text_to_speak = body.get("text", "").strip() or sample_text
+    text_to_speak = text_raw.strip() or sample_text
 
     if not text_to_speak:
         return jsonify({"error": "No text provided and no sample_text in voice config"}), 400
@@ -748,21 +841,24 @@ def api_generate_entity_voice(slug, etype, entity_slug):
     location_meta = _resolve_location_meta(entities, meta)
 
     # Build voice instruct (or use manual override from request body)
-    instruct = body.get("instruct", "").strip()
+    instruct = instruct_raw.strip()
     if not instruct:
         instruct = build_voice_instruct(voice_config, meta, location_meta)
 
-    job = voice_submit_job(
-        text=text_to_speak,
-        instruct=instruct,
-        project_dir=resolve_project_dir(slug),
-        project_slug=slug,
-        entity_slug=entity_slug,
-        entity_name=meta.get("name", entity_slug),
-        entity_type=etype,
-        speed=body.get("speed", 1.0),
-        force=body.get("force", False),
-    )
+    try:
+        job = voice_submit_job(
+            text=text_to_speak,
+            instruct=instruct,
+            project_dir=require_project_dir(slug),
+            project_slug=slug,
+            entity_slug=entity_slug,
+            entity_name=meta.get("name", entity_slug),
+            entity_type=etype,
+            speed=body.get("speed", 1.0),
+            force=body.get("force", False),
+        )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     return jsonify(job)
 
 @app.route("/api/voicegen/job/<job_id>")
@@ -790,7 +886,7 @@ def api_check_entity_voice(slug, etype, entity_slug):
     location_meta = _resolve_location_meta(entities, meta)
     instruct = build_voice_instruct(voice_config, meta, location_meta)
 
-    project_dir = resolve_project_dir(slug)
+    project_dir = require_project_dir(slug)
     cached = get_cached_voice(project_dir, entity_slug, sample_text, instruct)
 
     return jsonify({
@@ -810,14 +906,13 @@ def api_generate_all_voices(slug):
     """
     entities = collect_entities(slug)
     characters = entities.get("character", {})
-    project_dir = resolve_project_dir(slug)
-    if not project_dir:
-        return jsonify({"error": "Project not found"}), 404
+    project_dir = require_project_dir(slug)
 
-    body = request.get_json(silent=True) or {}
+    body = json_body()
     force = body.get("force", False)
 
     jobs = []
+    errors = []
     skipped = 0
     no_voice = 0
 
@@ -839,23 +934,28 @@ def api_generate_all_voices(slug):
                 skipped += 1
                 continue
 
-        job = voice_submit_job(
-            text=sample_text,
-            instruct=instruct,
-            project_dir=project_dir,
-            project_slug=slug,
-            entity_slug=char_slug,
-            entity_name=meta.get("name", char_slug),
-            entity_type="character",
-            speed=body.get("speed", 1.0),
-            force=force,
-        )
+        try:
+            job = voice_submit_job(
+                text=sample_text,
+                instruct=instruct,
+                project_dir=project_dir,
+                project_slug=slug,
+                entity_slug=char_slug,
+                entity_name=meta.get("name", char_slug),
+                entity_type="character",
+                speed=body.get("speed", 1.0),
+                force=force,
+            )
+        except ValueError as e:
+            errors.append({"entity_slug": char_slug, "error": str(e)})
+            continue
         jobs.append(job)
 
     return jsonify({
         "submitted": len(jobs),
         "skipped_cached": skipped,
         "skipped_no_voice": no_voice,
+        "errors": errors,
         "jobs": jobs,
     })
 
@@ -863,7 +963,7 @@ def api_generate_all_voices(slug):
 @app.route("/api/project/<slug>/voices/<filename>")
 def api_serve_voice(slug, filename):
     """Serve a generated voice sample."""
-    voice_dir = resolve_project_dir(slug) / "output" / "voices"
+    voice_dir = require_project_dir(slug) / "output" / "voices"
     if not (voice_dir / filename).exists():
         return jsonify({"error": "Voice not found"}), 404
     mimetype = "audio/mpeg" if filename.endswith(".mp3") else "audio/wav"

@@ -14,13 +14,17 @@ Usage:
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 import yaml
 
+
+def _default_slugify(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 # ─── Data classes ─────────────────────────────────────────────────────────────
 
@@ -108,6 +112,7 @@ class WorldGraph:
         self.edges: dict[str, list[GraphEdge]] = defaultdict(list)  # source → [edges]
         self.reverse_edges: dict[str, list[GraphEdge]] = defaultdict(list)  # target → [edges]
         self.entity_type_index: dict[str, list[str]] = defaultdict(list)  # type → [slugs]
+        self._slugify: Callable[[str], str] = _default_slugify
 
     # ── Node / edge primitives ────────────────────────────────────────────
 
@@ -157,14 +162,9 @@ class WorldGraph:
         simple lowercase-hyphenate fallback is used (prefer passing the real
         ``slugify`` from worldbuilder.py).
         """
-        import re
-
-        if slugify_fn is None:
-            def slugify_fn(name: str) -> str:
-                return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-
         graph = cls()
-        graph._slugify = slugify_fn
+        if slugify_fn is not None:
+            graph._slugify = slugify_fn
 
         # Pass 1: create nodes
         for entity_type, ents in entities.items():
@@ -763,7 +763,13 @@ class WorldGraph:
                 gender_tags = tag_set & {"male", "female"}
                 if gender_tags:
                     tag_gender = gender_tags.pop()
-                    norm_gender = "female" if gender in ("female", "f", "woman") else "male" if gender in ("male", "m", "man") else ""
+                    norm_gender = (
+                        "female"
+                        if gender in ("female", "f", "woman")
+                        else "male"
+                        if gender in ("male", "m", "man")
+                        else ""
+                    )
                     if norm_gender and tag_gender != norm_gender:
                         issues.append(ValidationIssue(
                             severity="error",
