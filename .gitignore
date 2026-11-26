@@ -6,20 +6,16 @@ __pycache__/
 dist/
 build/
 .venv/
+.pytest_cache/
+.ruff_cache/
 
 # Environment / secrets
 .env
 .env.*
 
-# Generated content
+# Worlds you create while testing (the bundled example lives under skills/worldbuilding/assets/)
+/worlds/
 /output/
-wizard-*.md
-logs/*
-!logs/.gitkeep
-
-# User projects (create your worlds here, but they're yours)
-worlds/*
-!worlds/.gitkeep
 
 # OS
 .DS_Store
