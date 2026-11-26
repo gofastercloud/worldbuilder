@@ -121,9 +121,16 @@
       const legend = el('div', { class: 'gv-legend' });
       stage.append(labelBox, tip, legend);
       const scene = new T.Scene();
+      scene.add(new T.AmbientLight(0xffffff, 0.65));
+      const keyLight = new T.DirectionalLight(0xffffff, 0.7);
+      keyLight.position.set(160, 240, 180);
+      scene.add(keyLight);
+      const rimLight = new T.DirectionalLight(0x9ec5ff, 0.35);
+      rimLight.position.set(-180, -120, -160);
+      scene.add(rimLight);
       const camera = new T.PerspectiveCamera(50, 1, 0.5, 5000);
       const cam = { theta: 0.6, phi: 1.2, dist: 300, target: new T.Vector3() };
-      let bg = new T.Color('#14161a');
+      let bg = new T.Color('#0e1117');
       let nodeObjs = []; // {node, mesh, r}
       let pickables = [];
       let posOf = new Map();
@@ -135,20 +142,22 @@
       let hover = null;
       const layoutCache = new Map();
       const geoms = {
-        sphere: new T.SphereGeometry(1, 16, 12), octa: new T.OctahedronGeometry(1.25), box: new T.BoxGeometry(1.6, 1.6, 1.6),
-        tetra: new T.TetrahedronGeometry(1.4), dodeca: new T.DodecahedronGeometry(1.15), cyl: new T.CylinderGeometry(1, 1, 1.5, 12),
+        sphere: new T.SphereGeometry(1, 20, 14), octa: new T.OctahedronGeometry(1.25), box: new T.BoxGeometry(1.6, 1.6, 1.6),
+        tetra: new T.TetrahedronGeometry(1.4), dodeca: new T.DodecahedronGeometry(1.15), cyl: new T.CylinderGeometry(1, 1, 1.5, 16),
         icosa: new T.IcosahedronGeometry(1.1, 0),
       };
       const cone = new T.ConeGeometry(1, 2.6, 8);
 
       function themeBg() {
-        const v = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#14161a';
+        const v = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#0e1117';
         bg = new T.Color(v);
         renderer.setClearColor(bg, 1);
+        scene.fog = new T.FogExp2(bg, 0.0011);
       }
       themeBg();
       const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
       if (mq && mq.addEventListener) mq.addEventListener('change', () => { themeBg(); restyle(); });
+      WB.bus.on('theme', () => { themeBg(); restyle(); });
 
       const visibleNodeSet = () => {
         const set = [];
@@ -176,7 +185,7 @@
         nodeObjs = []; pickables = []; posOf = new Map();
         nodes.forEach((n, i) => {
           const r = Math.min(5, 1.4 + 0.5 * Math.sqrt(WB.degree(n.id)));
-          const mesh = new T.Mesh(geoms[SHAPES[n.type] || 'sphere'], new T.MeshBasicMaterial({ color: 0xffffff }));
+          const mesh = new T.Mesh(geoms[SHAPES[n.type] || 'sphere'], new T.MeshLambertMaterial({ color: 0xffffff }));
           mesh.scale.setScalar(r);
           mesh.position.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
           mesh.userData.id = n.id;
@@ -251,14 +260,18 @@
         const inDown = (id) => f.down.has(id);
         nodeObjs.forEach((o) => {
           const id = o.node.id;
-          let c; let s = o.r;
-          if (active && id === f.id) { c = new T.Color(WB.colors.lineage.selected); s = o.r * 1.5; }
-          else if (active && inUp(id)) c = new T.Color(WB.colors.lineage.up);
-          else if (active && inDown(id)) c = new T.Color(WB.colors.lineage.down);
+          let c; let s = o.r; let em = 0;
+          if (active && id === f.id) { c = new T.Color(WB.colors.lineage.selected); s = o.r * 1.5; em = 0.35; }
+          else if (active && inUp(id)) { c = new T.Color(WB.colors.lineage.up); em = 0.16; }
+          else if (active && inDown(id)) { c = new T.Color(WB.colors.lineage.down); em = 0.16; }
           else if (active) c = dimmed(WB.colors.type[o.node.type], 0.82);
           else c = new T.Color(WB.colors.type[o.node.type] || '#888888');
-          if (hl && hl.has(id)) { c = new T.Color('#ffffff'); s = o.r * 1.4; }
+          if (hl && hl.has(id)) { c = new T.Color('#ffffff'); s = o.r * 1.4; em = 0.4; }
           o.mesh.material.color.copy(c);
+          if (o.mesh.material.emissive) {
+            o.mesh.material.emissive.copy(c);
+            o.mesh.material.emissiveIntensity = em;
+          }
           o.mesh.scale.setScalar(s);
         });
         const edgeColour = (e) => {
@@ -448,7 +461,7 @@
           let d = labelPool[used];
           if (!d) { d = el('div', { class: 'gv-label' }); labelBox.appendChild(d); labelPool.push(d); }
           d.hidden = false; d.textContent = text;
-          d.className = 'gv-label ' + (wnt.id === f.id ? 'sel' : '');
+          d.className = 'gv-label' + (wnt.id === f.id ? ' sel' : wnt.cls ? ' ' + wnt.cls : '');
           d.style.left = x + 'px'; d.style.top = y + 'px';
           used++;
         });

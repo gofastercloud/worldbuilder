@@ -154,8 +154,9 @@ def test_calendar_and_nodes(world):
     nodes = {n["id"]: n for n in data["nodes"]}
     assert nodes["the-rebuilding"]["t"] == 50 and nodes["the-rebuilding"]["end_t"] == 60
     assert nodes["the-flood"]["end_t"] is None
-    node_keys = {"id", "type", "name", "t", "end_t", "date_label", "era", "summary", "status", "tags"}
+    node_keys = {"id", "type", "name", "t", "end_t", "date_label", "era", "summary", "status", "tags", "image"}
     assert set(nodes["the-flood"]) == node_keys
+    assert nodes["the-flood"]["image"] is None
     assert data["counts"]["event"] == 2 and data["counts"]["location"] == 3
 
 
@@ -339,6 +340,61 @@ def test_cli_exit_code(tmp_path):
         [sys.executable, str(SKILL / "scripts" / "build_viewer.py"), str(tmp_path)], capture_output=True, text=True
     )
     assert r.returncode == 1 and "project.yaml" in r.stderr
+
+
+def test_image_discovery_convention(world):
+    loc_dir = world / "output" / "images" / "locations"
+    ev_dir = world / "output" / "images" / "events"
+    tr_dir = world / "output" / "images" / "traditions"
+    for d in (loc_dir, ev_dir, tr_dir):
+        d.mkdir(parents=True)
+    (loc_dir / "harbour.png").write_bytes(b"\x89PNG\r\n\x1a\nfake")
+    (ev_dir / "the-flood.webp").write_bytes(b"RIFF\x00\x00\x00\x00WEBP")
+    (tr_dir / "flood-song.jpg").write_bytes(b"\xff\xd8\xff\xe0fake")
+    nodes = {n["id"]: n for n in vd.build_viz_data(world)["nodes"]}
+    assert nodes["harbour"]["image"] == "images/locations/harbour.png"
+    assert nodes["the-flood"]["image"] == "images/events/the-flood.webp"
+    assert nodes["flood-song"]["image"] == "images/traditions/flood-song.jpg"
+    assert nodes["hill-town"]["image"] is None
+
+
+def test_image_discovery_frontmatter_and_safety(world):
+    custom = world / "output" / "images" / "custom"
+    custom.mkdir(parents=True)
+    (custom / "realm-crest.png").write_bytes(b"\x89PNG\r\n\x1a\ncrest")
+    (world / "world" / "locations" / "realm.md").write_text(
+        md({"name": "Realm", "type": "kingdom", "image": "images/custom/realm-crest.png"})
+    )
+    # External URL or path traversal must be ignored safely.
+    (world / "world" / "locations" / "hill-town.md").write_text(
+        md({"name": "Hill Town", "type": "town", "parent": "realm", "image": "https://evil.example/x.png"})
+    )
+    nodes = {n["id"]: n for n in vd.build_viz_data(world)["nodes"]}
+    assert nodes["realm"]["image"] == "images/custom/realm-crest.png"
+    assert nodes["hill-town"]["image"] is None
+
+
+def test_embed_images_data_uri(world):
+    import base64
+
+    png_bytes = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+    webp_bytes = b"RIFF\x0c\x00\x00\x00WEBPVP8 "
+    (world / "output" / "images" / "locations").mkdir(parents=True)
+    (world / "output" / "images" / "events").mkdir(parents=True)
+    (world / "output" / "images" / "locations" / "harbour.png").write_bytes(png_bytes)
+    (world / "output" / "images" / "events" / "the-flood.webp").write_bytes(webp_bytes)
+
+    data = vd.build_viz_data(world, embed_images=True)
+    nodes = {n["id"]: n for n in data["nodes"]}
+    assert nodes["harbour"]["image"] == "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
+    assert nodes["the-flood"]["image"] == "data:image/webp;base64," + base64.b64encode(webp_bytes).decode("ascii")
+    assert nodes["hill-town"]["image"] is None
+
+    out = world / "output" / "viz-embedded.json"
+    assert bv.main([str(world), "--json-only", "--embed-images", "--out", str(out)]) == 0
+    embedded = json.loads(out.read_text(encoding="utf-8"))
+    enodes = {n["id"]: n for n in embedded["nodes"]}
+    assert enodes["harbour"]["image"].startswith("data:image/png;base64,")
 
 
 # ── skill files ─────────────────────────────────────────────────────────────

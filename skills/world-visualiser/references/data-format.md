@@ -30,14 +30,15 @@
 
 ## nodes
 
-`{id, type, name, t, end_t, date_label, era, summary, status, tags}`
+`{id, type, name, t, end_t, date_label, era, summary, status, tags, image}`
 
 ```json
 {"id": "ai-wars", "type": "event", "name": "The AI Wars", "t": 3250.0, "end_t": 3280.0,
- "date_label": "250 CE", "era": "Contact Era", "summary": "...(max 160 chars)", "status": null, "tags": ["war"]}
+ "date_label": "250 CE", "era": "Contact Era", "summary": "...(max 160 chars)", "status": null, "tags": ["war"],
+ "image": "images/events/ai-wars.png"}
 ```
 
-`type` is one of `character, location, faction, item, magic-system, arc, event, species, race, language, lineage, tradition`. `t`/`end_t` are null when undated; `end_t` is null for point-in-time items. `id` is the kebab-case slug.
+`type` is one of `character, location, faction, item, magic-system, arc, event, species, race, language, lineage, tradition`. `t`/`end_t` are null when undated; `end_t` is null for point-in-time items. `id` is the kebab-case slug. `image` is a path relative to `output/world-viewer.html` (discovered from `output/images/<type-dir>/<slug>.{png,jpg,jpeg,webp}` or an optional frontmatter `image:` field), a `data:image/...;base64,...` URI when built with `--embed-images`, or `null` when absent.
 
 ## edges
 

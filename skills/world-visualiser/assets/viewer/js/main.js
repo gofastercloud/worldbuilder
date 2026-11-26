@@ -8,7 +8,7 @@
   app.replaceChildren();
 
   const banner = el('div', { class: 'banner', role: 'alert', hidden: hasThree },
-    'three.js could not load (needs internet). The 3D views are unavailable; the entity list, the detail panel and the timeline still work.');
+    'three.js could not load (needs internet). The 3D views are unavailable; the entity list, detail panel, timeline and gallery still work.');
 
   // ---- header and filters
   const search = el('input', { type: 'search', placeholder: 'Search names (press /)', 'aria-label': 'Search by name' });
@@ -26,14 +26,30 @@
     WB.setFilter();
   });
   const listBtn = el('button', { type: 'button', class: 'btn', 'aria-expanded': String(!hasThree), 'aria-controls': 'list', text: 'Entity list' });
-  const header = el('header', { class: 'top' }, el('h1', { text: (D.project && D.project.name) || 'World' }),
-    search, eraSel, listBtn);
+
+  const themes = ['system', 'light', 'dark'];
+  let themeIdx = 0;
+  const themeBtn = el('button', { type: 'button', class: 'btn', 'aria-label': 'Cycle colour theme', text: 'Theme: system' });
+  themeBtn.addEventListener('click', () => {
+    themeIdx = (themeIdx + 1) % themes.length;
+    const mode = themes[themeIdx];
+    if (mode === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', mode);
+    themeBtn.textContent = 'Theme: ' + mode;
+    WB.bus.emit('theme', mode);
+  });
+
+  const header = el('header', { class: 'top' },
+    el('h1', { text: (D.project && D.project.name) || 'World' }),
+    search, eraSel, listBtn,
+    el('span', { class: 'header-spacer', 'aria-hidden': 'true' }),
+    themeBtn);
 
   const tablist = el('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Views' });
 
   const typesPresent = Object.keys(WB.colors.type).filter((t) => D.nodes.some((n) => n.type === t));
   const chipBox = el('div', { class: 'chips', role: 'group', 'aria-label': 'Filter by type (none selected means all)' });
-  const chipBtns = typesPresent.map((t) => {
+  typesPresent.forEach((t) => {
     const count = D.nodes.filter((n) => n.type === t).length;
     const b = el('button', { type: 'button', class: 'chip', 'aria-pressed': 'false' },
       el('span', { class: 'dot', style: 'background:' + WB.colors.type[t], 'aria-hidden': 'true' }),
@@ -45,7 +61,6 @@
       WB.setFilter();
     });
     chipBox.appendChild(b);
-    return b;
   });
 
   // ---- entity list (keyboard accessible, works without WebGL)
