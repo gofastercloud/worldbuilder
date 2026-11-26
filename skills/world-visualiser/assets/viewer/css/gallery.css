@@ -4,52 +4,143 @@
   flex-wrap: wrap;
   gap: 8px 14px;
   align-items: center;
-  padding: 8px 14px;
+  padding: 9px 16px;
   border-bottom: 1px solid var(--border);
-  background: var(--panel);
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   font-size: 13px;
+  z-index: 2;
 }
-.gal-bar label { display: inline-flex; gap: 5px; align-items: center; color: var(--muted); font-weight: 500; }
+.gal-bar label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-weight: 500; }
 .gal-bar select {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 3px 8px;
+  padding: 4px 9px;
   color: var(--fg);
 }
+
+/* Mode segmented toggle */
+.gal-seg {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  gap: 2px;
+}
+.gal-seg-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+.gal-seg-btn:hover { color: var(--fg); }
+.gal-seg-btn[aria-pressed="true"] {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 0 12px var(--accent-soft);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .gal-seg-btn[aria-pressed="true"] { color: #070a12; }
+}
+:root[data-theme="dark"] .gal-seg-btn[aria-pressed="true"] { color: #070a12; }
+
 .gal-scroll {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 18px;
+  padding: 18px 20px 28px;
 }
+
+/* Gentle world-art banner */
+.gal-art-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(110deg, color-mix(in srgb, var(--accent) 12%, var(--panel)), color-mix(in srgb, var(--accent-3) 10%, var(--panel)));
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  font-size: 12.5px;
+  color: var(--fg);
+}
+.gal-art-banner code {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  font-size: 12px;
+}
+
+/* 3D perspective card grid */
 .gal-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(224px, 1fr));
+  gap: 18px;
+  perspective: 1100px;
+}
+.gal-card-wrap {
+  perspective: 900px;
 }
 .gal-card {
+  position: relative;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  height: 100%;
   text-align: left;
   padding: 0;
-  background: var(--panel);
+  background: var(--glass-strong);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   overflow: hidden;
   cursor: pointer;
   box-shadow: var(--shadow-sm);
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(0);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease, border-color 180ms ease;
+  will-change: transform;
+}
+.gal-card.tilting {
+  transition: transform 60ms linear, box-shadow 180ms ease, border-color 180ms ease;
 }
 .gal-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: var(--shadow-md), 0 0 22px color-mix(in srgb, var(--card-col, var(--accent)) 22%, transparent);
+  border-color: color-mix(in srgb, var(--card-col, var(--accent)) 65%, var(--border));
 }
 .gal-card.sel {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent), var(--shadow-md);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 26px var(--accent-soft), var(--shadow-md);
 }
+
+/* Specular light sheen overlay */
+.gal-sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  background: radial-gradient(
+    circle 180px at var(--mx, 50%) var(--my, 50%),
+    rgba(255, 255, 255, 0.24),
+    rgba(255, 255, 255, 0.06) 42%,
+    transparent 70%
+  );
+  mix-blend-mode: overlay;
+  transition: opacity 200ms ease;
+}
+.gal-card:hover .gal-sheen { opacity: 1; }
+
 .gal-thumb {
   position: relative;
   width: 100%;
@@ -63,9 +154,84 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 240ms ease;
+  transition: transform 280ms ease;
 }
-.gal-card:hover .gal-thumb img { transform: scale(1.04); }
+.gal-card:hover .gal-thumb img { transform: scale(1.05); }
+
+/* Holographic procedural crest card */
+.gal-holo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(circle at 22% 20%, color-mix(in srgb, var(--card-col, var(--accent)) 28%, transparent), transparent 62%),
+    radial-gradient(circle at 80% 82%, color-mix(in srgb, var(--accent-3) 22%, transparent), transparent 60%),
+    linear-gradient(135deg, color-mix(in srgb, var(--card-col, var(--accent)) 14%, var(--surface)), var(--bg));
+  overflow: hidden;
+}
+.gal-holo::after {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: conic-gradient(
+    from 120deg at 50% 50%,
+    transparent 0deg,
+    color-mix(in srgb, var(--card-col, var(--accent)) 18%, transparent) 60deg,
+    transparent 120deg,
+    rgba(255, 255, 255, 0.08) 180deg,
+    transparent 240deg
+  );
+  opacity: 0.55;
+  pointer-events: none;
+  transition: transform 400ms ease;
+}
+.gal-card:hover .gal-holo::after {
+  transform: rotate(18deg) scale(1.05);
+}
+.gal-holo-svg {
+  position: relative;
+  z-index: 1;
+  width: 82%;
+  height: 82%;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--card-col, var(--accent)) 35%, transparent));
+}
+.gal-holo-tag {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: rgba(8, 12, 22, 0.58);
+  color: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(4px);
+}
+.gal-expand-pill {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 4;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  background: rgba(8, 12, 22, 0.7);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.gal-card:hover .gal-expand-pill { opacity: 0.95; }
+
 .gal-placeholder {
   display: flex;
   align-items: center;
@@ -82,11 +248,12 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 10px 12px 12px;
+  padding: 11px 13px 13px;
+  flex: 1;
 }
 .gal-title {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 650;
   line-height: 1.3;
   color: var(--fg);
 }
@@ -97,6 +264,7 @@
   gap: 6px;
   font-size: 11.5px;
   color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 .gal-badge {
   display: inline-flex;
@@ -109,6 +277,16 @@
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--fg);
+}
+.gal-links-pill {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--muted);
 }
 .gal-summary {
   margin: 0;
@@ -125,7 +303,7 @@
   margin: 36px auto;
   padding: 24px 26px;
   text-align: center;
-  background: var(--panel);
+  background: var(--glass-strong);
   border: 1px dashed var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
@@ -147,4 +325,14 @@
   border: 1px solid var(--border-subtle);
   font-size: 12.5px;
   color: var(--fg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gal-card,
+  .gal-card.tilting {
+    transform: none !important;
+  }
+  .gal-sheen {
+    display: none !important;
+  }
 }
