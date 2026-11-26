@@ -1,0 +1,167 @@
+# Species Schema — WorldBuilder
+# A species is a biological/magical category of creature.
+# Sentient species can form civilizations, speak languages, and be player races.
+# Non-sentient species are fauna/flora/monsters.
+
+required:
+  - name
+  - sentience
+
+fields:
+  name:
+    type: string
+  aliases:
+    type: list
+    description: "Other names (common tongue, scholarly name, slurs, etc.)"
+    default: []
+  sentience:
+    type: enum
+    values:
+      - sapient          # Full intelligence, language, culture (humans, elves, etc.)
+      - semi-sapient     # Limited reasoning, possible basic communication (apes, some monsters)
+      - non-sapient      # Animal intelligence
+      - hive-mind        # Collective intelligence
+      - artificial       # Constructs, golems, AI
+      - unknown          # Mystery species, elder things
+    description: "Level of intelligence and self-awareness"
+
+  # ─── BIOLOGICAL ─────────────────────────────────────────────────────────────
+  biology:
+    type: object
+    fields:
+      classification:
+        type: enum
+        values: [humanoid, beast, avian, aquatic, insectoid, reptilian, plant, fungal, elemental, undead, construct, aberration, celestial, fiend, fey, dragon, ooze, custom]
+      size:
+        type: enum
+        values: [tiny, small, medium, large, huge, gargantuan, colossal, variable]
+        default: medium
+      lifespan:
+        type: string
+        description: "Typical lifespan (e.g. '80 years', 'immortal', '500-700 years')"
+      maturity_age:
+        type: string
+        description: "Age of physical/cultural adulthood"
+      reproduction:
+        type: enum
+        values: [sexual, asexual, budding, spore, magical, constructed, unknown]
+        default: sexual
+      diet:
+        type: enum
+        values: [omnivore, herbivore, carnivore, photosynthetic, mana-absorbing, scavenger, parasitic, none, custom]
+      physical_traits:
+        type: list
+        description: "Distinguishing physical characteristics"
+        default: []
+      senses:
+        type: list
+        description: "Available senses (e.g. darkvision, echolocation, mana-sight)"
+        default: [sight, hearing, smell, touch, taste]
+
+  # ─── HABITAT ────────────────────────────────────────────────────────────────
+  habitat:
+    type: object
+    fields:
+      native_terrain:
+        type: list
+        description: "Terrain types where this species naturally lives"
+        default: []
+      climate_preference:
+        type: list
+        default: [temperate]
+      range:
+        type: string
+        description: "Geographic spread (e.g. 'continent-wide', 'single island', 'interstellar')"
+      population_estimate:
+        type: string
+      population_trend:
+        type: enum
+        values: [growing, stable, declining, endangered, extinct, unknown]
+        default: stable
+
+  # ─── SAPIENT SPECIES FIELDS ─────────────────────────────────────────────────
+  # Only relevant for sapient/semi-sapient species
+  culture:
+    type: object
+    description: "Only for sapient species"
+    fields:
+      languages:
+        type: list
+        description: "Languages this species commonly speaks (refs to language entities)"
+        items: { type: ref, target: language }
+        default: []
+      native_language:
+        type: ref
+        target: language
+        description: "The species' original/primary language"
+      social_structure:
+        type: enum
+        values: [tribal, feudal, democratic, theocratic, meritocratic, hive, nomadic, anarchic, imperial, corporate, council, custom]
+      governance:
+        type: string
+      religion:
+        type: string
+        description: "Dominant religious/spiritual tradition"
+      technology_level:
+        type: enum
+        values: [stone-age, bronze-age, iron-age, medieval, renaissance, industrial, modern, post-modern, space-age, post-singularity, magical-equivalent, custom]
+      magic_affinity:
+        type: string
+        description: "Relationship to magic (e.g. 'innate casters', 'magic-resistant', 'no affinity')"
+
+  # ─── RACES / SUBRACES ──────────────────────────────────────────────────────
+  races:
+    type: list
+    description: "Known racial/ethnic subgroups (refs to race entities)"
+    items: { type: ref, target: race }
+    default: []
+
+  # ─── INTER-SPECIES ──────────────────────────────────────────────────────────
+  relationships:
+    type: list
+    description: "How this species relates to others"
+    items:
+      species:
+        type: ref
+        target: species
+      disposition:
+        type: enum
+        values: [allied, friendly, neutral, wary, hostile, predator-prey, symbiotic, parasitic, unknown]
+      can_interbreed:
+        type: boolean
+        default: false
+      notes:
+        type: string
+    default: []
+
+  # ─── NON-SAPIENT SPECIES FIELDS ────────────────────────────────────────────
+  creature:
+    type: object
+    description: "Only for non-sapient species (beasts, monsters)"
+    fields:
+      danger_level:
+        type: enum
+        values: [harmless, nuisance, dangerous, deadly, apocalyptic]
+        default: nuisance
+      domesticable:
+        type: boolean
+        default: false
+      uses:
+        type: list
+        description: "What sapient species use them for (mount, food, materials, pet, etc.)"
+        default: []
+      pack_size:
+        type: string
+      territorial:
+        type: boolean
+        default: false
+
+  # ─── META ───────────────────────────────────────────────────────────────────
+  origin:
+    type: string
+    description: "How this species came to exist (evolution, creation, magical accident, etc.)"
+  first_appearance:
+    type: string
+  tags:
+    type: list
+    default: []

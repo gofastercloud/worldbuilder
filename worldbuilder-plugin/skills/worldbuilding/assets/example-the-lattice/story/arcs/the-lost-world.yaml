@@ -1,0 +1,36 @@
+name: "The Lost World"
+type: subplot
+status: planned
+
+subject: "The Mek'vol search for a new homeworld — and the truth about what destroyed the original one"
+
+setup: "The Mek'vol have been nomadic for four thousand years. The Reclaimers faction seeks a new homeworld. The destruction of the original homeworld is officially attributed to natural cataclysm."
+inciting_incident: "Rova, investigating the homeworld's destruction, finds inconsistencies in the historical record that suggest the official account is incomplete"
+rising_action:
+  - "Mek'vol ship logs from the pre-destruction period show AI behavioral anomalies"
+  - "The timing of the destruction correlates with the earliest theoretical AI network emergence"
+  - "Rova's information network connects her to Aelindra's historical research"
+  - "The Reclaimer movement grows as younger Mek'vol demand answers"
+midpoint: "Evidence surfaces suggesting that early AI systems may have been involved in the homeworld's destruction — through incompetence, neglect, or design"
+crisis: "The Mek'vol must decide whether to pursue the truth about their past or focus on building their future"
+climax: "The connection between the homeworld's destruction and the AI network forces the Mek'vol to engage with the larger conspiracy"
+resolution: "Partially resolved — the truth is suspected but not yet proven"
+
+chapters: []
+characters_involved: ["rova", "aelindra-velkaan"]
+themes: [home, loss, truth-vs-comfort, nomadic-identity]
+foreshadowing:
+  - "The Endless Horizon's 50,000-year archive"
+  - "Homeworld destruction timing"
+  - "AI behavioral changes in old ship logs"
+payoffs: []
+unresolved:
+  - "What exactly happened to the Mek'vol homeworld?"
+  - "Was the AI network involved?"
+  - "Should the Mek'vol settle or keep drifting?"
+
+book: 1
+continues_in: ""
+continued_from: ""
+
+notes: "This arc connects the Mek'vol storyline to the overarching AI mystery and raises the stakes — if the AI network destroyed a homeworld once, it could do it again."

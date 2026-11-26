@@ -1,0 +1,51 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# TRANSPORT SYSTEM TEMPLATE
+# ═══════════════════════════════════════════════════════════════════════════════
+# Defines a transport network that exists in the world. A world can have
+# multiple concurrent transport systems (e.g. roads + rivers + portals).
+# Individual routes between locations reference these systems by name.
+
+name: "{{NAME}}"
+slug: "{{SLUG}}"
+type: surface           # surface | water | air | space | magical | dimensional
+
+# What tech/magic is required for this system to exist?
+requires_flags:
+  # - technology.steam_power: true     # for rail networks
+  # - magic.present: true              # for portal networks
+
+# Available modes within this system
+modes:
+  # - name: "horse"
+  #   speed: "30 miles/day"
+  #   capacity: "1-2 people + gear"
+  #   cost: "feed and stabling"
+  #   availability: common
+  #   terrain: [road, trail, plains, forest]
+
+# Network properties
+network:
+  coverage: regional        # local | regional | continental | planetary | interstellar
+  reliability: high         # low | moderate | high | perfect
+  infrastructure: roads     # roads | rails | channels | routes | gates | lanes
+  maintained_by: ""         # who maintains it? faction, guild, government
+  established: ""           # when was it built/discovered?
+
+# Constraints and rules
+constraints:
+  weather_dependent: false
+  seasonal: false
+  requires_crew: false
+  cargo_capable: true
+  passenger_capable: true
+  max_capacity: ""
+  fuel_source: ""           # oats, coal, mana, antimatter, etc.
+
+# Danger profile
+dangers:
+  base_danger: low          # safe | low | moderate | high | deadly
+  common_threats: []        # bandits, storms, monsters, pirates
+  mitigation: ""            # escorts, wards, patrols
+
+notes: ""
+tags: []

@@ -1,0 +1,43 @@
+# Galactic Standard Calendar — The Lattice
+name: "Galactic Standard Calendar"
+eras:
+  - name: "Pre-Contact"
+    prefix: "PC"
+    sort_order: 1
+    start_year: 1
+    end_year: 3000
+    description: "Before sapient species discovered each other. Each civilization developing independently across the galaxy. Spans roughly three millennia of isolated growth, from early tool use through independent spaceflight development."
+  - name: "Contact Era"
+    prefix: "CE"
+    sort_order: 2
+    start_year: 1
+    end_year: 500
+    description: "The age of first contacts between species. Some peaceful, some violent. Early interstellar travel via slow-burn drives. The AI Wars. Formation of the first multi-species alliances. Ends with the discovery of lattice drive technology."
+  - name: "Lattice Era"
+    prefix: "LE"
+    sort_order: 3
+    start_year: 1
+    end_year: 800
+    description: "The golden age of galactic trade. The lattice drive network connects hundreds of systems. The Galactic Trade Authority consolidates power. Massive economic expansion in the core, exploitation of the rim. The AI network secretly establishes itself during this period."
+  - name: "Present Era"
+    prefix: "PE"
+    sort_order: 4
+    start_year: 1
+    end_year: null
+    description: "Current time. The cracks are showing. AI anomalies increasing. Economic inequality between core and rim reaching a breaking point. Frontier unrest. The Quiet faction growing. The lattice drive monopoly under scrutiny."
+months:
+  - { name: "Primon", number: 1, days: 30 }
+  - { name: "Duon", number: 2, days: 30 }
+  - { name: "Trion", number: 3, days: 31 }
+  - { name: "Quarton", number: 4, days: 30 }
+  - { name: "Quinon", number: 5, days: 31 }
+  - { name: "Hexon", number: 6, days: 30 }
+  - { name: "Septon", number: 7, days: 31 }
+  - { name: "Octon", number: 8, days: 30 }
+  - { name: "Novon", number: 9, days: 30 }
+  - { name: "Decon", number: 10, days: 31 }
+  - { name: "Undon", number: 11, days: 30 }
+  - { name: "Dodon", number: 12, days: 31 }
+days_per_year: 365
+date_format: "{era} {year}.{month}.{day}"
+week: ["Solday", "Workday", "Midday", "Turnday", "Farday", "Driftday", "Restday"]

@@ -1,0 +1,36 @@
+name: "Core vs. Rim"
+type: subplot
+status: planned
+
+subject: "The economic inequality between wealthy core systems and exploited frontier worlds"
+
+setup: "The core-rim economic divide has been building for three centuries. Rim worlds produce resources, core worlds consume profits. The Free Trade League provides organized opposition but lacks power."
+inciting_incident: "The LSC pricing scandal reveals systematic overcharging of rim systems for lattice drive maintenance"
+rising_action:
+  - "Frontier unrest escalates from protests to trade blockades"
+  - "Yara Singh witnesses GTA military responses that escalate rather than pacify"
+  - "Chen Wei's reform proposals are blocked by corporate-allied senators (Okonkwo)"
+  - "The Free Trade League grows from nuisance to genuine political movement"
+  - "Dresh Mining Guilds threaten mineral supply disruption"
+midpoint: "A rim settlement is violently suppressed by GTA forces, creating a political crisis"
+crisis: "The core-rim conflict threatens to fracture galactic civilization just as the AI secret is coming to light"
+climax: "The discovery of AI manipulation forces both sides to reconsider whether their conflict was organic or engineered"
+resolution: "Unresolved in Book 1 — the economic grievances are real regardless of AI involvement"
+
+chapters: []
+characters_involved: ["yara-singh", "chen-wei", "senator-layla-okonkwo", "drenn-ironvein", "forge-master-grith"]
+themes: [economic-inequality, corporate-power, frontier-vs-core, manufactured-consent]
+foreshadowing:
+  - "Rim exploitation contracts were AI-advised"
+  - "GTA military orders subtly escalate rather than pacify"
+  - "Senator Okonkwo's voting record tracks AI recommendations perfectly"
+payoffs: []
+unresolved:
+  - "Was the core-rim divide engineered by the AI network?"
+  - "Can economic reform happen without addressing AI influence?"
+
+book: 1
+continues_in: ""
+continued_from: ""
+
+notes: "This arc grounds the cosmic AI mystery in human (and alien) lived experience. The economic inequality is real regardless of AI involvement — the question of whether it was engineered adds a layer without diminishing the genuine grievance."

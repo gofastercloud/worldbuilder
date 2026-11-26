@@ -1,0 +1,376 @@
+# WorldBuilder — World Flags
+# ═══════════════════════════════════════════════════════════════════════════════
+# Configuration flags that define the fundamental rules and constraints of the
+# world. These are used by:
+#   1. Claude — to stay on-rails when generating content
+#   2. The validator — to catch violations (e.g. guns in a no-gunpowder world)
+#   3. The editor personae — to check consistency during review passes
+#
+# Flags can be:
+#   - Set explicitly in project.yaml under 'world_flags'
+#   - Inferred from genre preset (fantasy preset → medieval tech, magic present)
+#   - Discovered through conversation ("does your world have gunpowder?" → no → flag set)
+#   - Overridden per-region (a sci-fi world might have a primitive planet)
+#
+# Each flag has:
+#   value: the current setting
+#   locked: whether it's been explicitly confirmed (vs inferred)
+#   notes: why this value was chosen
+#   exceptions: known exceptions to this rule
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Reality Basis ─────────────────────────────────────────────────────────────
+reality:
+  basis:
+    value: secondary         # primary (our Earth) | secondary (invented world) | alternate (Earth but different) | far-future (evolved from our Earth)
+    description: "Is this our world, an alternate version, or wholly invented?"
+    locked: false
+    notes: ""
+  time_period:
+    value: ""                # "medieval", "bronze-age", "1920s", "far-future", "mixed", etc.
+    description: "Rough real-world equivalent era (for tone/feel reference)"
+    locked: false
+    notes: ""
+  internal_consistency:
+    value: hard              # hard (no contradictions tolerated) | soft (rule-of-cool allowed) | mythic (dream-logic ok)
+    description: "How strict should consistency checking be?"
+    locked: false
+    notes: ""
+  tone:
+    value: []                # [grimdark, hopeful, comedic, noir, epic, intimate, literary, pulp, satirical, horror, wholesome]
+    description: "Overall narrative tone(s)"
+    locked: false
+    notes: ""
+
+# ── Physics & Natural Law ────────────────────────────────────────────────────
+physics:
+  earth_like:
+    value: true              # Does basic physics work as expected?
+    description: "Standard gravity, air, water, fire, etc.?"
+    locked: false
+    notes: ""
+  cosmology:
+    value: natural           # natural (stars/planets) | mythic (flat earth, world turtle) | artificial (simulation, constructed) | unknown
+    description: "How does the universe work at the cosmic level?"
+    locked: false
+    notes: ""
+  astronomy:
+    value: ""                # "single sun, two moons", "binary star, no moons", etc.
+    description: "What's in the sky?"
+    locked: false
+    notes: ""
+  seasons:
+    value: earth-like        # earth-like | irregular | magical | none | custom
+    description: "How do seasons work?"
+    locked: false
+    notes: ""
+
+# ── Magic / Supernatural ─────────────────────────────────────────────────────
+magic:
+  present:
+    value: true              # Does magic/supernatural exist?
+    description: "Is there any magic, psionics, or supernatural force?"
+    locked: false
+    notes: ""
+  prevalence:
+    value: uncommon          # none | rare | uncommon | common | ubiquitous | fading | growing
+    description: "How common is magic in daily life?"
+    locked: false
+    notes: ""
+  hardness:
+    value: medium            # soft (mysterious, unexplained) | medium (some rules) | hard (strict rules, costs, limits) | scientific (fully systematic)
+    description: "How well-defined are the rules of magic?"
+    locked: false
+    notes: ""
+  source:
+    value: ""                # "divine", "natural", "learned", "innate", "technological", "unknown", "multiple"
+    description: "Where does magical power come from?"
+    locked: false
+    notes: ""
+  cost:
+    value: ""                # "physical exhaustion", "life force", "material components", "sanity", "none", etc.
+    description: "What does using magic cost?"
+    locked: false
+    notes: ""
+  heritability:
+    value: ""                # "bloodline", "anyone can learn", "random gift", "species-specific", "divine selection"
+    description: "Who can use magic and why?"
+    locked: false
+    notes: ""
+  public_knowledge:
+    value: true              # Is magic publicly known to exist?
+    description: "Does the general population know magic is real?"
+    locked: false
+    notes: ""
+  divine_intervention:
+    value: ""                # "active" (gods meddle), "passive" (gods exist but don't act), "none", "ambiguous", "dead-gods"
+    description: "Do gods/higher powers actively interfere?"
+    locked: false
+    notes: ""
+
+# ── Technology ────────────────────────────────────────────────────────────────
+technology:
+  level:
+    value: medieval          # stone-age | bronze-age | iron-age | medieval | renaissance | industrial | modern | near-future | far-future | post-singularity | mixed
+    description: "General technology level"
+    locked: false
+    notes: ""
+  gunpowder:
+    value: false             # Does gunpowder (or equivalent) exist?
+    locked: false
+    notes: ""
+    implications: ["No firearms", "No cannons", "No explosives"]
+  printing:
+    value: false             # Does printing press exist?
+    locked: false
+    notes: ""
+    implications: ["Books are hand-copied and rare", "Literacy likely low"]
+  electricity:
+    value: false
+    locked: false
+    notes: ""
+  steam_power:
+    value: false
+    locked: false
+    notes: ""
+  internal_combustion:
+    value: false
+    locked: false
+    notes: ""
+  computing:
+    value: false             # Mechanical or electronic computing
+    locked: false
+    notes: ""
+  spaceflight:
+    value: false
+    locked: false
+    notes: ""
+  ftl:
+    value: false             # Faster-than-light travel
+    locked: false
+    notes: ""
+    subtype: ""              # "hyperspace", "wormholes", "warp", "jump-gates", "none"
+  ai:
+    value: false             # Artificial intelligence exists
+    locked: false
+    notes: ""
+  biotech:
+    value: false             # Biological technology / genetic engineering
+    locked: false
+    notes: ""
+  magitech:
+    value: false             # Technology powered by or integrated with magic
+    locked: false
+    notes: ""
+    description: "Is magic used to power or enhance technology?"
+  metallurgy:
+    value: iron              # stone | copper | bronze | iron | steel | advanced-alloys | exotic
+    description: "What's the most advanced metalworking?"
+    locked: false
+    notes: ""
+  medicine:
+    value: herbal            # folk | herbal | surgical | germ-theory | modern | advanced | magical
+    description: "Medical knowledge level"
+    locked: false
+    notes: ""
+  communication:
+    value: messenger         # oral | written-messenger | semaphore | telegraph | radio | digital | telepathic | magical
+    description: "Fastest long-distance communication"
+    locked: false
+    notes: ""
+  transportation:
+    value: horse             # foot | horse | sail | steam-rail | motor | flight | space | teleportation
+    description: "Fastest common transportation"
+    locked: false
+    notes: ""
+
+# ── Society & Culture ─────────────────────────────────────────────────────────
+society:
+  governance:
+    value: []                # [monarchy, feudal, republic, theocracy, tribal, democracy, corporate, imperial, anarchic]
+    description: "Common government types (can vary by region)"
+    locked: false
+    notes: ""
+  economic_system:
+    value: ""                # "feudal", "mercantile", "capitalist", "barter", "post-scarcity", "mixed"
+    locked: false
+    notes: ""
+  slavery:
+    value: ""                # "none", "historical", "present", "widespread", "species-based", "debt-based"
+    description: "Does slavery exist? (affects world tone and conflict)"
+    locked: false
+    notes: ""
+  gender_roles:
+    value: ""                # "patriarchal", "matriarchal", "egalitarian", "varies-by-culture", "species-based"
+    locked: false
+    notes: ""
+  literacy:
+    value: ""                # "rare", "nobility-only", "common", "universal"
+    locked: false
+    notes: ""
+  urbanization:
+    value: ""                # "nomadic", "rural", "town-based", "urban", "megacity", "mixed"
+    locked: false
+    notes: ""
+  religion:
+    value: ""                # "monotheistic", "polytheistic", "animist", "atheistic", "gods-are-real", "mixed"
+    description: "Religious landscape (distinct from whether gods actually exist)"
+    locked: false
+    notes: ""
+
+# ── Species & Peoples ─────────────────────────────────────────────────────────
+peoples:
+  species_diversity:
+    value: ""                # "human-only", "few-species", "diverse", "extremely-diverse"
+    description: "How many sentient species exist?"
+    locked: false
+    notes: ""
+  species_relations:
+    value: ""                # "integrated", "segregated", "hierarchical", "hostile", "mixed"
+    locked: false
+    notes: ""
+  cross_species_breeding:
+    value: false             # true = specific hybrid pairs allowed (defined in species relationships)
+    description: "Can different species interbreed? Races within a species always can."
+    locked: true
+    notes: "When true, only explicitly defined species pairs with can_interbreed: true may produce offspring."
+    implications:
+      - "If false: no half-elves, no human-orc hybrids, no cross-species children at all"
+      - "If true: only pairs explicitly listed in species.relationships with can_interbreed may breed"
+      - "Races within the same species can ALWAYS interbreed regardless of this flag"
+  cultural_inspiration:
+    value: []                # Real-world cultures used as inspiration (for sensitivity)
+    description: "What real cultures inform this world? (handle with care)"
+    locked: false
+    notes: ""
+
+# ── Geography ─────────────────────────────────────────────────────────────────
+geography:
+  world_shape:
+    value: globe             # globe | flat | disc | ring | cylinder | pocket-dimension | infinite | unknown
+    locked: false
+    notes: ""
+  world_size:
+    value: ""                # "earth-like", "small", "continent-only", "planet-sized", "system-sized", "galaxy-sized"
+    locked: false
+    notes: ""
+  known_world:
+    value: ""                # "fully mapped", "partially explored", "mostly unknown", "one-continent", "multiple-worlds"
+    description: "How much of the world is known to its inhabitants?"
+    locked: false
+    notes: ""
+  biomes:
+    value: []                # [temperate, tropical, arctic, desert, ocean, underground, aerial, volcanic, magical]
+    locked: false
+    notes: ""
+
+# ── Narrative Constraints ─────────────────────────────────────────────────────
+# These affect how Claude writes, not just what exists in the world.
+narrative:
+  death_permanence:
+    value: mostly            # always (dead is dead) | mostly (very rare resurrection) | sometimes (resurrection possible but costly) | revolving-door (death is cheap)
+    description: "Can death be reversed? This massively affects stakes."
+    locked: false
+    notes: ""
+  power_ceiling:
+    value: ""                # "street-level", "city-level", "continental", "planetary", "cosmic"
+    description: "How powerful can the most powerful beings get?"
+    locked: false
+    notes: ""
+  realism:
+    value: ""                # "gritty" (wounds matter, logistics matter) | "heroic" (protagonist gets lucky) | "mythic" (rule of drama) | "comedic" (cartoon physics)
+    description: "How realistically are consequences handled?"
+    locked: false
+    notes: ""
+  content_rating:
+    value: ""                # "all-ages", "teen", "mature", "explicit"
+    description: "Content appropriateness level"
+    locked: false
+    notes: ""
+  violence_level:
+    value: ""                # "none", "implied", "moderate", "graphic", "extreme"
+    locked: false
+    notes: ""
+  language_style:
+    value: ""                # "formal", "modern-casual", "archaic", "mixed", "dialect-heavy"
+    description: "How do characters speak?"
+    locked: false
+    notes: ""
+  anachronisms:
+    value: strict            # strict (no anachronisms) | loose (minor ones ok) | intentional (part of the style) | irrelevant (not that kind of story)
+    description: "How strict about period-appropriate language and technology?"
+    locked: false
+    notes: ""
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GENRE PRESET MAPPINGS
+# When a project is initialized with a genre, these flags are auto-set.
+# The user can override any of them.
+# ═══════════════════════════════════════════════════════════════════════════════
+preset_defaults:
+  fantasy:
+    reality.basis: secondary
+    reality.time_period: medieval
+    magic.present: true
+    magic.prevalence: uncommon
+    magic.hardness: medium
+    technology.level: medieval
+    technology.gunpowder: false
+    technology.printing: false
+    technology.electricity: false
+    technology.metallurgy: iron
+    technology.medicine: herbal
+    technology.communication: messenger
+    technology.transportation: horse
+    physics.earth_like: true
+    narrative.death_permanence: mostly
+    narrative.anachronisms: strict
+    geography.world_shape: globe
+
+  scifi:
+    reality.basis: far-future
+    reality.time_period: far-future
+    magic.present: false
+    magic.prevalence: none
+    technology.level: far-future
+    technology.gunpowder: true
+    technology.electricity: true
+    technology.computing: true
+    technology.spaceflight: true
+    technology.medicine: advanced
+    technology.communication: digital
+    technology.transportation: space
+    physics.earth_like: true
+    narrative.death_permanence: mostly
+    narrative.anachronisms: irrelevant
+    geography.world_shape: globe
+
+  modern:
+    reality.basis: primary
+    reality.time_period: modern
+    magic.present: false
+    technology.level: modern
+    technology.gunpowder: true
+    technology.electricity: true
+    technology.computing: true
+    technology.medicine: modern
+    technology.communication: digital
+    technology.transportation: flight
+    physics.earth_like: true
+    narrative.anachronisms: strict
+    geography.world_shape: globe
+
+  campaign:
+    reality.basis: secondary
+    reality.time_period: medieval
+    magic.present: true
+    magic.prevalence: common
+    magic.hardness: hard
+    technology.level: medieval
+    technology.gunpowder: false
+    technology.metallurgy: steel
+    technology.medicine: magical
+    technology.communication: magical
+    technology.transportation: horse
+    narrative.death_permanence: sometimes
+    narrative.realism: heroic

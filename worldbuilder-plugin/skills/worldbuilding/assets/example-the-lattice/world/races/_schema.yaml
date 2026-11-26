@@ -1,0 +1,140 @@
+# Race Schema — WorldBuilder
+# A race/subrace is a cultural or biological subdivision of a species.
+# Inherits species biology but may have variations in appearance, culture,
+# language, and habitat. Think: High Elves vs Wood Elves vs Dark Elves,
+# or Klingon Houses, or Dwarven Clans.
+
+required:
+  - name
+  - species
+
+fields:
+  name:
+    type: string
+  aliases:
+    type: list
+    default: []
+  species:
+    type: ref
+    target: species
+    description: "Parent species this race belongs to"
+
+  # ─── BIOLOGICAL VARIATION ───────────────────────────────────────────────────
+  # Differences from the base species
+  variation:
+    type: object
+    fields:
+      distinguishing_traits:
+        type: list
+        description: "Physical traits that differ from base species (e.g. 'pale skin', 'smaller stature', 'bioluminescent markings')"
+        default: []
+      average_height:
+        type: string
+      average_build:
+        type: string
+      lifespan_modifier:
+        type: string
+        description: "How lifespan differs from species norm (e.g. '+50 years', 'shorter', 'same')"
+      unique_abilities:
+        type: list
+        description: "Racial abilities not shared by other races of the same species"
+        default: []
+
+  # ─── CULTURE ────────────────────────────────────────────────────────────────
+  culture:
+    type: object
+    fields:
+      homeland:
+        type: ref
+        target: location
+        description: "Ancestral homeland / primary territory"
+      current_territories:
+        type: list
+        items: { type: ref, target: location }
+        default: []
+      language:
+        type: ref
+        target: language
+        description: "Primary language (may be dialect of species language)"
+      additional_languages:
+        type: list
+        items: { type: ref, target: language }
+        default: []
+      social_structure:
+        type: string
+        description: "How this race organizes (may differ from species norm)"
+      values:
+        type: list
+        description: "Core cultural values (e.g. 'honor', 'knowledge', 'nature')"
+        default: []
+      taboos:
+        type: list
+        description: "Cultural prohibitions"
+        default: []
+      traditions:
+        type: list
+        description: "Notable customs, festivals, rites of passage"
+        default: []
+      religion:
+        type: string
+      naming_conventions:
+        type: object
+        description: "How names work in this culture"
+        fields:
+          pattern:
+            type: string
+            description: "e.g. 'Given + Clan', 'Title + Given + Patronymic', 'Single name'"
+          examples:
+            type: list
+            default: []
+          notes:
+            type: string
+
+  # ─── RELATIONS ──────────────────────────────────────────────────────────────
+  relationships:
+    type: list
+    description: "Relations with other races (not just other species)"
+    items:
+      race:
+        type: ref
+        target: race
+      disposition:
+        type: enum
+        values: [allied, friendly, neutral, wary, hostile, rival, vassal, overlord]
+      history:
+        type: string
+        description: "Brief history of the relationship"
+    default: []
+
+  faction_affiliations:
+    type: list
+    description: "Factions this race commonly belongs to"
+    items: { type: ref, target: faction }
+    default: []
+
+  # ─── POPULATION ─────────────────────────────────────────────────────────────
+  population:
+    type: object
+    fields:
+      estimate:
+        type: string
+      distribution:
+        type: string
+        description: "Where they live (concentrated, diaspora, nomadic, etc.)"
+      trend:
+        type: enum
+        values: [growing, stable, declining, endangered, extinct, unknown]
+        default: stable
+
+  # ─── META ───────────────────────────────────────────────────────────────────
+  origin:
+    type: string
+    description: "How this race diverged from the base species"
+  magic_affinity:
+    type: string
+    description: "Relationship to magic (may differ from species)"
+  first_appearance:
+    type: string
+  tags:
+    type: list
+    default: []

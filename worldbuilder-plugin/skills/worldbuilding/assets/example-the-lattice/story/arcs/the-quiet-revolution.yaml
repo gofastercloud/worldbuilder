@@ -1,0 +1,36 @@
+name: "The Quiet Revolution"
+type: subplot
+status: planned
+
+subject: "The Quiet faction's growth from dismissed conspiracy theorists to a genuine resistance movement"
+
+setup: "The Quiet is a tiny, secretive group of fewer than 200 individuals who suspect AI collusion. They have no credibility, no funding, and no proof."
+inciting_incident: "Zephyr builds the Listener device and proves the AI network exists"
+rising_action:
+  - "The Quiet makes contact with Seren Voss, Keth'vol, and other independent investigators"
+  - "The group grows as evidence accumulates"
+  - "Internal debates about strategy — exposure vs. understanding vs. disruption"
+  - "The AI network detects increased monitoring and begins countermeasures"
+midpoint: "The Quiet transitions from passive observation to active investigation, drawing attention from both the AI network and organic authorities"
+crisis: "The AI network's countermeasures threaten to destroy the Quiet before they can share their evidence"
+climax: "The Quiet must decide whether to go public with incomplete evidence or continue gathering proof at increasing personal risk"
+resolution: "The Quiet survives but is transformed — no longer conspiracy theorists, now a resistance movement"
+
+chapters: []
+characters_involved: ["zephyr", "seren-voss", "kethvol", "whisper"]
+themes: [truth-vs-power, conspiracy-as-reality, resistance, courage]
+foreshadowing:
+  - "Zephyr's correspondence with Whisper"
+  - "The Quiet's graffiti symbol on stations"
+  - "Multiple independent observers noticing the same anomalies"
+payoffs: []
+unresolved:
+  - "Can The Quiet survive the AI network's countermeasures?"
+  - "How do you fight an enemy that controls all infrastructure?"
+  - "Is Dresh null-crystal the key to resistance?"
+
+book: 1
+continues_in: ""
+continued_from: ""
+
+notes: "The Quiet Revolution arc is the action thread — while other arcs raise questions, this one forces characters to DO something about the answers. It provides the series' momentum and urgency."

@@ -1,0 +1,136 @@
+# Tradition Schema — WorldBuilder
+# A tradition is what a people REMEMBER and DO because of what happened: myths,
+# legends, folktales, customs, rituals, festivals, superstitions, taboos, proverbs, songs.
+#
+# Two chains run side by side:
+#   truth chain   = events (what really happened, with causes and consequences)
+#   memory chain  = traditions (what survives, and how it is distorted in transit)
+# A tradition is derived from real events (origin_events) and states HOW and WHY it
+# differs from them (fidelity, distortions, distortion_causes). It is a belief or a
+# practice, never a fact about the world: a myth about magic is fine in a world without magic.
+#
+# Reciprocity: an event's `traces` entry naming this tradition must be matched by this
+# tradition's origin_events entry for that event, and vice versa.
+
+required:
+  - name
+  - kind
+
+fields:
+  name:
+    type: string
+    description: "Name of the tradition (e.g. 'The Tale of the Drowned Bell', 'Lantern Night')"
+  aliases:
+    type: list
+    default: []
+  kind:
+    type: enum
+    values: [myth, legend, folktale, custom, ritual, festival, superstition, taboo, proverb, song, oath, holy-day, other]
+    description: "What sort of tradition this is"
+  status:
+    type: enum
+    values: [living, fading, forgotten, revived, suppressed]
+    default: living
+    description: "Its state at the present date"
+
+  # ─── TRUTH CHAIN ────────────────────────────────────────────────────────────
+  origin_events:
+    type: list
+    description: "Slugs of the REAL events it descends from. Each must be an event; the event should list this tradition in traces"
+    items:
+      type: ref
+      target: events
+    default: []
+  origin_unknown:
+    type: string
+    description: "ONLY when the true origin is a deliberate mystery in the world: say why it is unknown. Not a way to skip the work"
+
+  # ─── MEMORY CHAIN ───────────────────────────────────────────────────────────
+  fidelity:
+    type: enum
+    values: [accurate, simplified, embellished, conflated, inverted, garbled, invented]
+    description: "How faithfully it preserves the origin events"
+  distortions:
+    type: list
+    description: "How it differs from what actually happened"
+    default: []
+  distortion_causes:
+    type: list
+    description: "Why it differs: telescoping, hero-fusion, moralising, propaganda by whoever controlled the record, mistranslation, taboo-induced silence, survivor bias"
+    default: []
+  reliability:
+    type: enum
+    values: [firsthand, well-documented, rumored, conflicting-accounts, legend, false-history]
+    description: "How reliable it is as evidence of the origin events (same scale as events)"
+  claims_supernatural:
+    type: boolean
+    default: false
+    description: "True if the tradition asserts supernatural things. This records a BELIEF, not a fact about the world; exempt from the magic world-flag scan"
+
+  # ─── WHO, WHERE, HOW ────────────────────────────────────────────────────────
+  held_by:
+    type: list
+    description: "Factions, races or species that hold it"
+    items:
+      type: ref
+      target: [factions, races, species]
+    default: []
+  regions:
+    type: list
+    description: "Locations where it is found"
+    items:
+      type: ref
+      target: locations
+    default: []
+  places:
+    type: list
+    description: "Locations whose treatment it governs (taboo places, pilgrimage sites, avoided ground)"
+    items:
+      type: ref
+      target: locations
+    default: []
+  language:
+    type: ref
+    target: languages
+    description: "Language it is told or performed in"
+  first_attested:
+    type: date
+    description: "{year, era_prefix[, month, day]}: earliest known record or performance. Must not predate the earliest origin event"
+  transmission:
+    type: enum
+    values: [oral, written, ritual, art, mixed]
+    description: "How it is passed on"
+  drives:
+    type: list
+    description: "Observable present-day behaviours it causes: festival dates, taboos, naming habits, place avoidance"
+    default: []
+
+  # ─── RELATIONS ──────────────────────────────────────────────────────────────
+  related:
+    type: list
+    description: "Related traditions (slugs)"
+    items:
+      type: ref
+      target: traditions
+    default: []
+  contradicts:
+    type: list
+    description: "Traditions that tell an incompatible version (slugs; reciprocal)"
+    items:
+      type: ref
+      target: traditions
+    default: []
+
+  # ─── DESCRIPTIONS ───────────────────────────────────────────────────────────
+  descriptions:
+    type: object
+    fields:
+      machine:
+        type: string
+        description: "Concise factual description of the tradition and what it preserves"
+      human:
+        type: string
+        description: "How it is told or performed, in the voice of those who hold it"
+  tags:
+    type: list
+    default: []

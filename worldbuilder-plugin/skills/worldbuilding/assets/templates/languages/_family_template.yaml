@@ -1,0 +1,38 @@
+# Language Family Template — WorldBuilder
+# Defines the full family tree for a group of related languages.
+# Individual language entities reference this, but this file gives
+# the bird's-eye view of how they all connect.
+
+name: "{{NAME}}"
+slug: "{{SLUG}}"
+proto_language: ""         # ref to the proto-language entity at the root
+
+# The full tree structure. Each node is a language slug.
+# Children inherit from parent. Indent = descent.
+tree:
+  # proto-elvish:
+  #   - old-elvish:
+  #     - high-elvish:
+  #       - court-elvish
+  #       - scholarly-elvish
+  #     - wood-elvish:
+  #       - northern-wood-elvish
+  #       - southern-wood-elvish
+  #     - dark-elvish
+  #   - sea-elvish
+
+# Geographic spread over time — how the family dispersed
+spread:
+  # - date: "1A 200"
+  #   event: "Elvish migration north"
+  #   languages_affected: [old-elvish]
+  #   locations: [northern-forests]
+
+# Mutual intelligibility matrix (summary — details on individual language entities)
+# Only list pairs where intelligibility > 0.2
+intelligibility_summary:
+  # - pair: [high-elvish, wood-elvish]
+  #   score: 0.6
+  #   notes: "Share grammar, divergent vocabulary"
+
+notes: ""
