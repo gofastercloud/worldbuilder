@@ -47,6 +47,25 @@ If `descriptions.image_prompt` is empty or missing:
 
    Use `.webp` or `.jpg` if the returned image is in that format (keep the actual format extension matching the file bytes). `<type-dir>` matches the entity folder name under `world/`: `characters`, `locations`, `factions`, `items`, `species`, `races`, `events`, `magic-systems`, `lineages`, `traditions`, `languages`, `arcs`.
 5. Ensure parent directories exist before writing.
+6. **Log usage, tokens and cost** to `<project>/output/art-usage.yaml` using [scripts/log_usage.py](./scripts/log_usage.py) (resolved relative to this skill's directory):
+
+   ```bash
+   python3 <this-skill-dir>/scripts/log_usage.py record <project-dir> \
+     --entity <type-dir>/<slug> \
+     --endpoint <endpoint-id> \
+     --request-id <request-id> \
+     --seed <seed> \
+     --width <w> --height <h> \
+     --unit-price <price> --unit <unit> \
+     --tokens <tokens-if-reported> \
+     --output-file output/images/<type-dir>/<slug>.<ext>
+   ```
+
+   Use `summary` to report accumulated spend and token usage for a world:
+
+   ```bash
+   python3 <this-skill-dir>/scripts/log_usage.py summary <project-dir> [--json]
+   ```
 
 ## Batch generation
 

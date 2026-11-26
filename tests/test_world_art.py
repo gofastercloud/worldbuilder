@@ -124,3 +124,90 @@ def test_templates_restore_image_prompt_and_visual_style():
         fm, _ = _split_frontmatter(tpl_path)
         assert "descriptions" in fm, f"{etype}/_template.md missing descriptions"
         assert "image_prompt" in fm["descriptions"], f"{etype}/_template.md missing descriptions.image_prompt"
+
+
+def test_log_usage_record_and_summary(tmp_path, capsys):
+    import importlib.util
+
+    script = ROOT / "skills" / "world-art" / "scripts" / "log_usage.py"
+    assert script.is_file()
+    spec = importlib.util.spec_from_file_location("wb_log_usage", script)
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    (tmp_path / "project.yaml").write_text("title: Test World\n", encoding="utf-8")
+
+    # Record megapixel-billed image generation
+    rc1 = mod.main(
+        [
+            "record",
+            str(tmp_path),
+            "--entity",
+            "characters/seren-voss",
+            "--endpoint",
+            "fal-ai/flux/schnell",
+            "--request-id",
+            "req-1",
+            "--seed",
+            "42",
+            "--width",
+            "768",
+            "--height",
+            "1024",
+            "--unit-price",
+            "0.003",
+            "--unit",
+            "megapixels",
+            "--output-file",
+            "output/images/characters/seren-voss.png",
+        ]
+    )
+    assert rc1 == 0
+
+    # Record token-billed generation
+    rc2 = mod.main(
+        [
+            "record",
+            str(tmp_path),
+            "--entity",
+            "locations/meridian-station",
+            "--endpoint",
+            "fal-ai/nano-banana-pro",
+            "--request-id",
+            "req-2",
+            "--width",
+            "1024",
+            "--height",
+            "576",
+            "--tokens",
+            "1200",
+            "--unit",
+            "tokens",
+            "--cost-usd",
+            "0.045",
+        ]
+    )
+    assert rc2 == 0
+
+    ledger_path = tmp_path / "output" / "art-usage.yaml"
+    assert ledger_path.is_file()
+    ledger = yaml.safe_load(ledger_path.read_text(encoding="utf-8"))
+    assert ledger["totals"]["generations"] == 2
+    assert ledger["totals"]["total_tokens"] == 1200
+    expected_mp = round(round(768 * 1024 / 1_000_000, 4) + round(1024 * 576 / 1_000_000, 4), 4)
+    assert ledger["totals"]["total_megapixels"] == expected_mp
+    expected_cost = round(0.003 * round(768 * 1024 / 1_000_000, 4) + 0.045, 6)
+    assert ledger["totals"]["total_estimated_cost_usd"] == expected_cost
+    assert set(ledger["by_model"]) == {"fal-ai/flux/schnell", "fal-ai/nano-banana-pro"}
+
+    # Summary JSON output
+    capsys.readouterr()
+    assert mod.main(["summary", str(tmp_path), "--json"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["totals"]["generations"] == 2
+
+    # Missing project.yaml returns exit code 1
+    empty = tmp_path / "missing"
+    empty.mkdir()
+    assert mod.main(["summary", str(empty)]) == 1
