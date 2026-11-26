@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WorldBuilder — Fiction That Actually Adds Up</title>
+  <meta name="description" content="A quirky, zero-dependency multi-agent plugin for Antigravity, Claude, and Codex. Build causally consistent fictional worlds, explore them in 3D, and illustrate them with optional fal.ai OAuth imagegen.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="starfield" aria-hidden="true"></canvas>
+
+  <header class="nav-wrap">
+    <nav class="nav container" aria-label="Primary">
+      <a class="brand" href="#top">
+        <span class="brand-badge" aria-hidden="true">◈</span>
+        <span class="brand-text">WorldBuilder</span>
+        <span class="pill-mini">v0.1 · Multi-Agent</span>
+      </a>
+      <div class="nav-links">
+        <a href="#demos">Demos</a>
+        <a href="#agents">Agents</a>
+        <a href="#art">fal.ai Art</a>
+        <a href="#skills">15 Skills</a>
+        <a class="btn btn-sm btn-glow" href="viewer.html">Live 3D Viewer ↗</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="top">
+    <!-- HERO -->
+    <section class="hero container">
+      <div class="hero-copy">
+        <div class="stamp-row">
+          <span class="stamp stamp-cyan">Antigravity · Claude · Codex</span>
+          <span class="stamp stamp-amber">0 Runtime Deps</span>
+          <span class="stamp stamp-violet">fal.ai OAuth Ready</span>
+        </div>
+        <h1>Stop dead kings from attending their own <span class="gradient-text">weddings.</span></h1>
+        <p class="lead">
+          WorldBuilder is a multi-agent plugin for building fictional worlds where every war, trade route, myth, and bloodline actually has a cause. Plain Markdown + YAML files, a deterministic graph checker, an outrageously over-the-top 3D/2D visualiser, and optional browser-OAuth <strong>fal.ai</strong> artwork.
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="viewer.html">
+            <span>Launch Live 3D Viewer</span>
+            <span aria-hidden="true">→</span>
+          </a>
+          <a class="btn btn-ghost" href="#agents">Install in 30 Seconds</a>
+          <a class="btn btn-ghost" href="https://github.com/gofastercloud/worldbuilder" target="_blank" rel="noopener">GitHub Repo ↗</a>
+        </div>
+        <div class="hero-stats">
+          <div><strong>12</strong><span>Entity types</span></div>
+          <div><strong>15</strong><span>Agent skills</span></div>
+          <div><strong>6</strong><span>Interactive views</span></div>
+          <div><strong>$0.009</strong><span>4 sample fal.ai artworks</span></div>
+        </div>
+      </div>
+
+      <!-- INTERACTIVE VIDEO STAGE -->
+      <div class="hero-stage" id="demos">
+        <div class="stage-chrome">
+          <div class="stage-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div class="stage-tabs" role="tablist" aria-label="Product demo clips">
+            <button type="button" class="stage-tab active" role="tab" aria-selected="true" data-demo="3d">
+              1. 3D Causal Universe
+            </button>
+            <button type="button" class="stage-tab" role="tab" aria-selected="false" data-demo="dataviz">
+              2. Timeline · Map · Trade · Life
+            </button>
+            <button type="button" class="stage-tab" role="tab" aria-selected="false" data-demo="gallery">
+              3. ⌘K · Telemetry · Gallery
+            </button>
+          </div>
+          <a class="stage-open" href="viewer.html" title="Open live interactive viewer">Try live ↗</a>
+        </div>
+
+        <div class="stage-screen">
+          <video id="demo-video" autoplay loop muted playsinline poster="assets/demos/demo-3d-universe.png">
+            <source src="assets/demos/demo-3d-universe.mp4" type="video/mp4">
+          </video>
+          <div class="stage-caption" id="demo-caption">
+            <strong>3D Causal Universe</strong> — Morph between Constellation, Chronos Helix, Causal Strata, and Orbital Sphere with streaming causal particle FX and radar navigation.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUIRKY PILLARS -->
+    <section class="section container">
+      <div class="section-head">
+        <span class="eyebrow">Why worlds break (and how this stops it)</span>
+        <h2>Built like an obsessive archivist with a particle accelerator.</h2>
+      </div>
+      <div class="pillars-grid">
+        <article class="card pillar">
+          <div class="pillar-icon">⛓️</div>
+          <h3>Truth Chains &amp; Memory Chains</h3>
+          <p>Events record <code>caused_by</code> and <code>leads_to</code>. Myths, songs, and taboos live as <strong>traditions</strong> that descend from real events and distort them over centuries — so your people can believe a lie while you still know the truth.</p>
+        </article>
+        <article class="card pillar">
+          <div class="pillar-icon">🚫✨</div>
+          <h3>The Magic Yes/No Gate</h3>
+          <p>Set <code>world_flags.magic.present: false</code> and nothing supernatural sneaks into your hard sci-fi or historical world — not in lore, not in prose, and not in your generated artwork. The validator enforces it.</p>
+        </article>
+        <article class="card pillar">
+          <div class="pillar-icon">🧭</div>
+          <h3>Physics-First Generation Order</h3>
+          <p>Geography and climate first, then resources, peoples, economy, history, and folklore. Cities sit where food and trade routes justify them. Rivers never flow uphill.</p>
+        </article>
+        <article class="card pillar">
+          <div class="pillar-icon">📦</div>
+          <h3>Zero Runtime Dependencies</h3>
+          <p>Just plain Markdown + YAML files and Python 3.9+ stdlib scripts (PyYAML is vendored). No database, no Docker stack, no server — runs natively inside desktop agent sandboxes.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- MULTI-AGENT SUPPORT -->
+    <section class="section container" id="agents">
+      <div class="section-head">
+        <span class="eyebrow">One Repo · Three Desktop Clients</span>
+        <h2>Bring your favourite AI agent. No vendor lock-in.</h2>
+        <p class="section-sub">WorldBuilder ships dual manifests (<code>plugin.json</code> + <code>.claude-plugin/plugin.json</code>), portable relative skill paths, and dual OAuth MCP configs so it works natively everywhere.</p>
+      </div>
+
+      <div class="agent-switcher card">
+        <div class="agent-tabs" role="tablist" aria-label="Agent install instructions">
+          <button type="button" class="agent-tab active" role="tab" aria-selected="true" data-agent="agy">
+            <span class="agent-dot cyan"></span>Antigravity (Gemini)
+          </button>
+          <button type="button" class="agent-tab" role="tab" aria-selected="false" data-agent="claude">
+            <span class="agent-dot amber"></span>Claude Code &amp; Cowork
+          </button>
+          <button type="button" class="agent-tab" role="tab" aria-selected="false" data-agent="codex">
+            <span class="agent-dot violet"></span>Codex / ChatGPT
+          </button>
+        </div>
+
+        <div class="agent-panel" id="agent-panel">
+          <!-- Populated by app.js -->
+        </div>
+      </div>
+    </section>
+
+    <!-- FAL.AI ARTWORK & COST LEDGER -->
+    <section class="section container" id="art">
+      <div class="section-head">
+        <span class="eyebrow">Optional · Browser OAuth · Zero API Keys</span>
+        <h2>Illustrate your universe with <span class="gradient-text">fal.ai</span></h2>
+        <p class="section-sub">
+          Connect fal.ai's official remote Streamable HTTP MCP server (<code>https://mcp.fal.ai/mcp-relay</code>) with a one-click browser sign-in. Every portrait, landscape, emblem, and event scene obeys your <code>world_flags</code>, logs its token/megapixel cost to <code>output/art-usage.yaml</code>, and flows straight into the visualiser's Gallery &amp; Lightbox.
+        </p>
+      </div>
+
+      <div class="art-grid">
+        <figure class="art-card" data-full="assets/art/seren-voss.jpg" data-title="Seren Voss — Character Portrait" data-meta="characters/seren-voss · 768×1024 · fal-ai/flux/schnell · seed 676397639 · $0.0024">
+          <div class="art-frame portrait">
+            <img src="assets/art/seren-voss.jpg" alt="Seren Voss character portrait generated via fal.ai" loading="lazy">
+          </div>
+          <figcaption>
+            <div class="art-badges"><span class="chip-tag cyan">Character</span><span>768×1024</span></div>
+            <strong>Seren Voss</strong>
+            <p>Rim-born navigator, UV-scarred cheekbones, functional neural interface, null-crystal pendant — zero fantasy magic.</p>
+          </figcaption>
+        </figure>
+
+        <figure class="art-card" data-full="assets/art/meridian-station.jpg" data-title="Meridian Station — Orbital Landscape" data-meta="locations/meridian-station · 1024×576 · fal-ai/flux/schnell · seed 361272498 · $0.0018">
+          <div class="art-frame landscape">
+            <img src="assets/art/meridian-station.jpg" alt="Meridian Station concentric orbital rings generated via fal.ai" loading="lazy">
+          </div>
+          <figcaption>
+            <div class="art-badges"><span class="chip-tag emerald">Location</span><span>1024×576</span></div>
+            <strong>Meridian Station</strong>
+            <p>40 km concentric chrome-and-glass orbital hub hanging at Sol System's Lagrange point.</p>
+          </figcaption>
+        </figure>
+
+        <figure class="art-card" data-full="assets/art/lattice-systems-corp.jpg" data-title="Lattice Systems Corp — Faction Emblem" data-meta="factions/lattice-systems-corp · 1024×1024 · fal-ai/flux/schnell · seed 31437468 · $0.0031">
+          <div class="art-frame square">
+            <img src="assets/art/lattice-systems-corp.jpg" alt="Lattice Systems Corp hexagonal emblem generated via fal.ai" loading="lazy">
+          </div>
+          <figcaption>
+            <div class="art-badges"><span class="chip-tag amber">Faction Heraldry</span><span>1024×1024</span></div>
+            <strong>Lattice Systems Corp</strong>
+            <p>Rendered directly from the entity's YAML <code>heraldry.sigil</code> blazon: white lattice-knot star on black with electric blue border.</p>
+          </figcaption>
+        </figure>
+
+        <figure class="art-card" data-full="assets/art/ai-wars.jpg" data-title="The AI Wars — Historical Event Scene" data-meta="events/ai-wars · 1024×576 · fal-ai/flux/schnell · seed 1953471260 · $0.0018">
+          <div class="art-frame landscape">
+            <img src="assets/art/ai-wars.jpg" alt="The AI Wars orbital conflict scene generated via fal.ai" loading="lazy">
+          </div>
+          <figcaption>
+            <div class="art-badges"><span class="chip-tag rose">Event · World-Changing</span><span>1024×576</span></div>
+            <strong>The AI Wars (250–280 CE)</strong>
+            <p>Autonomous defence platforms turning on orbital shipyards — the real event behind two contradictory surviving traditions.</p>
+          </figcaption>
+        </figure>
+      </div>
+
+      <!-- LIVE USAGE LEDGER CARD -->
+      <div class="ledger-card card">
+        <div class="ledger-head">
+          <div>
+            <span class="eyebrow">Built-in Cost Transparency</span>
+            <h3>Per-World Usage Ledger (<code>output/art-usage.yaml</code>)</h3>
+          </div>
+          <span class="stamp stamp-emerald">Actual spend for all 4 images above: $0.0090 USD</span>
+        </div>
+        <pre class="code-block"><code>$ python3 skills/world-art/scripts/log_usage.py summary worlds/the-lattice
+Generations: 4
+Total tokens: 0
+Total megapixels: 3.0146 MP
+Estimated cost: $0.009043 USD
+
+By model:
+  - fal-ai/flux/schnell: 4 run(s), 0 tokens, 3.0146 MP, $0.009043</code></pre>
+      </div>
+    </section>
+
+    <!-- ALL 3 DEMO CLIPS GRID -->
+    <section class="section container">
+      <div class="section-head">
+        <span class="eyebrow">See It In Action</span>
+        <h2>Every view, in motion.</h2>
+      </div>
+      <div class="clips-grid">
+        <article class="clip-card card">
+          <video autoplay loop muted playsinline poster="assets/demos/demo-3d-universe.png">
+            <source src="assets/demos/demo-3d-universe.mp4" type="video/mp4">
+          </video>
+          <div class="clip-body">
+            <h3>3D Causal Universe</h3>
+            <p>4 morphing 3D layouts, streaming causal energy particles, shockwaves, fly-to-node camera, and a live radar minimap.</p>
+          </div>
+        </article>
+        <article class="clip-card card">
+          <video autoplay loop muted playsinline poster="assets/demos/demo-dataviz.png">
+            <source src="assets/demos/demo-dataviz.mp4" type="video/mp4">
+          </video>
+          <div class="clip-body">
+            <h3>Timeline, Map, Trade &amp; Life</h3>
+            <p>Animated Bézier causal arcs, Era Density Scrubber, zoomable biome atlas, 3-column Trade Sankey, and Ecological Web.</p>
+          </div>
+        </article>
+        <article class="clip-card card">
+          <video autoplay loop muted playsinline poster="assets/demos/demo-command-gallery.png">
+            <source src="assets/demos/demo-command-gallery.mp4" type="video/mp4">
+          </video>
+          <div class="clip-body">
+            <h3>⌘K Palette, Telemetry &amp; 3D Gallery</h3>
+            <p>Instant fuzzy-jump Command Palette, SVG World Telemetry HUD, inline detail mini-graph, and 3D-tilt artwork Gallery.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 15 SKILLS -->
+    <section class="section container" id="skills">
+      <div class="section-head">
+        <span class="eyebrow">Progressive Disclosure</span>
+        <h2>15 modular skills. Load only what you're building.</h2>
+      </div>
+      <div class="skills-grid" id="skills-grid"></div>
+    </section>
+
+    <!-- CTA BANNER -->
+    <section class="section container">
+      <div class="cta-banner card">
+        <h2>Ready to explore <em>The Lattice</em> right in your browser?</h2>
+        <p>138 entities, 31 causally linked events, 867 relationships, and 4 embedded fal.ai artworks — all in one self-contained HTML file.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="viewer.html">Open Live 3D Viewer →</a>
+          <a class="btn btn-ghost" href="https://github.com/gofastercloud/worldbuilder" target="_blank" rel="noopener">Star on GitHub ↗</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer container">
+    <div>
+      <strong>WorldBuilder</strong> · Apache 2.0 Licence · Built for Antigravity, Claude &amp; Codex
+    </div>
+    <div class="footer-links">
+      <a href="viewer.html">Live Viewer</a>
+      <a href="https://github.com/gofastercloud/worldbuilder" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </footer>
+
+  <!-- LIGHTBOX -->
+  <div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="Artwork preview">
+    <div class="lightbox-inner">
+      <button type="button" class="lightbox-close" id="lb-close" aria-label="Close">✕</button>
+      <img id="lb-img" alt="">
+      <div class="lightbox-meta">
+        <strong id="lb-title"></strong>
+        <span id="lb-sub"></span>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
