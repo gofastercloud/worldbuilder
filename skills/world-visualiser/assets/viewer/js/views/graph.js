@@ -450,21 +450,21 @@
 
       // ---- Three.js Scene, Lighting & Procedural Textures ----
       const scene = new T.Scene();
-      const ambientLight = new T.AmbientLight(0xdbeafe, 0.72);
+      const ambientLight = new T.AmbientLight(0xdbeafe, 1.15);
       scene.add(ambientLight);
-      const keyLight = new T.DirectionalLight(0xffffff, 0.95);
+      const keyLight = new T.DirectionalLight(0xffffff, 1.45);
       keyLight.position.set(180, 260, 200);
       scene.add(keyLight);
-      const rimLight = new T.DirectionalLight(0x7dd3fc, 0.55);
+      const rimLight = new T.DirectionalLight(0x7dd3fc, 0.9);
       rimLight.position.set(-220, -140, -180);
       scene.add(rimLight);
-      const warmLight = new T.PointLight(0xf59e0b, 0.45, 700);
+      const warmLight = new T.PointLight(0xf59e0b, 0.85, 900);
       warmLight.position.set(140, -160, 120);
       scene.add(warmLight);
 
       const camera = new T.PerspectiveCamera(48, 1, 0.5, 6500);
-      const cam = { theta: 0.65, phi: 1.18, dist: 300, target: new T.Vector3() };
-      const camGoal = { theta: 0.65, phi: 1.18, dist: 300, target: new T.Vector3() };
+      const cam = { theta: 0.65, phi: 1.18, dist: 215, target: new T.Vector3() };
+      const camGoal = { theta: 0.65, phi: 1.18, dist: 215, target: new T.Vector3() };
 
       const glowTex = makeGlowTexture(T, [
         [0.0, 'rgba(255,255,255,1)'],
@@ -934,9 +934,9 @@
           const mat = new T.MeshPhongMaterial({
             color: 0xffffff,
             emissive: 0x000000,
-            emissiveIntensity: 0.25,
-            specular: 0xe2e8f0,
-            shininess: 85,
+            emissiveIntensity: 0.55,
+            specular: 0xf8fafc,
+            shininess: 95,
             transparent: true,
             opacity: 1,
           });
@@ -952,12 +952,12 @@
             map: glowTex,
             color: WB.colors.type[n.type] || '#888888',
             transparent: true,
-            opacity: 0.45,
+            opacity: 0.68,
             blending: isDark ? T.AdditiveBlending : T.NormalBlending,
             depthWrite: false,
           });
           const halo = new T.Sprite(haloMat);
-          halo.scale.setScalar(baseR * 4.4);
+          halo.scale.setScalar(baseR * 5.2);
           grp.add(halo);
 
           // Planetary ring for locations
@@ -1185,7 +1185,7 @@
 
       function restyle() {
         const f = WB.focus();
-        const active = !!f.id;
+        const active = !!f.id && nodeById.has(f.id);
         const hl = f.hl;
         const inUp = (id) => f.up.has(id);
         const inDown = (id) => f.down.has(id);
@@ -1194,30 +1194,30 @@
           const id = o.node.id;
           let c;
           let scaleMult = 1;
-          let em = 0.24;
+          let em = 0.58;
           let opacity = 1.0;
-          let haloOpacity = isDark ? 0.42 : 0.26;
+          let haloOpacity = isDark ? 0.78 : 0.42;
 
           if (active && id === f.id) {
             c = new T.Color(WB.colors.lineage.selected);
             scaleMult = 1.48;
-            em = 0.65;
-            haloOpacity = isDark ? 0.95 : 0.65;
+            em = 0.85;
+            haloOpacity = isDark ? 1.0 : 0.75;
           } else if (active && inUp(id)) {
             c = new T.Color('#38bdf8');
-            scaleMult = 1.14;
-            em = 0.42;
-            haloOpacity = isDark ? 0.72 : 0.45;
+            scaleMult = 1.18;
+            em = 0.68;
+            haloOpacity = isDark ? 0.88 : 0.55;
           } else if (active && inDown(id)) {
             c = new T.Color('#fb923c');
-            scaleMult = 1.14;
-            em = 0.42;
-            haloOpacity = isDark ? 0.72 : 0.45;
+            scaleMult = 1.18;
+            em = 0.68;
+            haloOpacity = isDark ? 0.88 : 0.55;
           } else if (active) {
-            c = dimmed(WB.colors.type[o.node.type] || '#888888', 0.72);
-            opacity = 0.24;
-            em = 0.04;
-            haloOpacity = 0.05;
+            c = dimmed(WB.colors.type[o.node.type] || '#888888', 0.65);
+            opacity = 0.28;
+            em = 0.08;
+            haloOpacity = 0.08;
           } else {
             c = new T.Color(WB.colors.type[o.node.type] || '#888888');
           }
@@ -1225,9 +1225,9 @@
           if (hl && hl.has(id)) {
             c = new T.Color('#ffffff');
             scaleMult = 1.42;
-            em = 0.7;
+            em = 0.88;
             opacity = 1.0;
-            haloOpacity = 0.95;
+            haloOpacity = 1.0;
           }
 
           o.mesh.material.color.copy(c);
@@ -1242,7 +1242,7 @@
           if (o.halo) {
             o.halo.material.color.copy(c);
             o.halo.material.opacity = haloOpacity;
-            o.halo.scale.setScalar(o.r * scaleMult * 4.4);
+            o.halo.scale.setScalar(o.r * scaleMult * 5.4);
           }
           if (o.locRing) {
             o.locRing.material.color.copy(c);

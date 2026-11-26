@@ -216,7 +216,7 @@
             return el('div', { class: 'gal-card-wrap' }, card);
           }));
 
-        scroll.replaceChildren(artBanner, grid);
+        scroll.replaceChildren(...[artBanner, grid].filter(Boolean));
       }
 
       this.onSelect = () => render();

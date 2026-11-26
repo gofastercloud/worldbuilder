@@ -554,7 +554,7 @@ const WB = (function () {
         if (tr.status) facts.push(['Status', tr.status]);
       }
 
-      root.replaceChildren(
+      const detailChildren = [
         hero,
         headerBlock,
         n.summary ? el('p', { class: 'detail-summary', text: n.summary }) : null,
@@ -562,7 +562,7 @@ const WB = (function () {
         facts.length ? el('dl', {}, facts.map(([k, v]) => [el('dt', { text: k }), el('dd', { text: v })])) : null,
         n.tags && n.tags.length ? el('div', { class: 'detail-tags', 'aria-label': 'Tags' },
           n.tags.map((t) => el('span', { class: 'detail-tag', text: '#' + t }))) : null,
-        lists.length ? lists.map((l) => el('details', { class: 'detail-group', open: true },
+        ...(lists.length ? lists.map((l) => el('details', { class: 'detail-group', open: true },
           el('summary', {},
             el('span', { text: l.title }),
             el('span', { class: 'detail-group-count', text: String(l.items.length) })),
@@ -580,7 +580,9 @@ const WB = (function () {
             el('span', { class: 'dot', style: 'background:' + (colors.type[m.type] || '#888'), 'aria-hidden': 'true' }),
             el('span', { class: 'detail-rel-chip-name', text: m.name }),
             note ? el('span', { class: 'detail-rel-chip-note', text: '· ' + note }) : null);
-          })))) : el('p', { class: 'muted', text: 'No linked items in the files.' }));
+          })))) : [el('p', { class: 'muted', text: 'No linked items in the files.' })]),
+      ].filter(Boolean);
+      root.replaceChildren(...detailChildren);
     },
   };
   WBobj.detail = detail;

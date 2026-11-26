@@ -339,13 +339,15 @@
       .sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name));
     const cap = 400;
     stats.textContent = shown.length + ' of ' + D.nodes.length + ' entities match';
-    listBox.replaceChildren(el('ul', {}, shown.slice(0, cap).map((n) => el('li', {}, el('button', {
-      type: 'button', class: 'link', 'aria-current': WB.state.selected === n.id ? 'true' : null,
-      onclick: () => WB.select(n.id),
-    }, el('span', { class: 'dot', style: 'background:' + (WB.colors.type[n.type] || '#888'), 'aria-hidden': 'true' }),
-    n.name, el('span', { class: 'muted', text: ' ' + (WB.typeGlyph[n.type] || '') }))))),
-    shown.length > cap ? el('p', { class: 'muted', text: (shown.length - cap) + ' more; refine the search.' }) : null,
-    shown.length === 0 ? el('p', { class: 'muted', text: 'Nothing matches the filters.' }) : null);
+    listBox.replaceChildren(...[
+      el('ul', {}, shown.slice(0, cap).map((n) => el('li', {}, el('button', {
+        type: 'button', class: 'link', 'aria-current': WB.state.selected === n.id ? 'true' : null,
+        onclick: () => WB.select(n.id),
+      }, el('span', { class: 'dot', style: 'background:' + (WB.colors.type[n.type] || '#888'), 'aria-hidden': 'true' }),
+      n.name, el('span', { class: 'muted', text: ' ' + (WB.typeGlyph[n.type] || '') }))))),
+      shown.length > cap ? el('p', { class: 'muted', text: (shown.length - cap) + ' more; refine the search.' }) : null,
+      shown.length === 0 ? el('p', { class: 'muted', text: 'Nothing matches the filters.' }) : null,
+    ].filter(Boolean));
   }
 
   // ---- views and tabs
