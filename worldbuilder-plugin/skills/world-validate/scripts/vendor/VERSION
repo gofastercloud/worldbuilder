@@ -1,0 +1,3 @@
+PyYAML 6.0.3 (pure-Python build, copied from the project virtualenv).
+C extension (yaml/_yaml*.so) removed; yaml falls back to the pure-Python loader.
+Licence: MIT, see LICENSE.
