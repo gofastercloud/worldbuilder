@@ -65,7 +65,23 @@ def test_example_builds_to_one_self_contained_page(tmp_path):
     html = _build(EXAMPLE, tmp_path)
     _check_single_file(html)
     assert "The Lattice" in html
-    assert "WB.registerView" in html and "'graph'" in html and "'timeline'" in html
+    assert "WB.registerView" in html and "'graph'" in html and "'timeline'" in html and "'gallery'" in html
+
+
+def test_embed_images_flag_produces_portable_single_file(tmp_path):
+    import base64
+
+    fixtures.write_world(tmp_path)
+    png_bytes = b"\x89PNG\r\n\x1a\nportable"
+    img_dir = tmp_path / "output" / "images" / "locations"
+    img_dir.mkdir(parents=True)
+    (img_dir / "harbour.png").write_bytes(png_bytes)
+    out = tmp_path / "out" / "portable.html"
+    assert bv.main([str(tmp_path), "--embed-images", "--out", str(out)]) == 0
+    html = out.read_text(encoding="utf-8")
+    _check_single_file(html)
+    expected = "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
+    assert expected in html
 
 
 def test_synthetic_project_and_script_end_in_name(tmp_path):

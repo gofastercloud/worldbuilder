@@ -2,7 +2,7 @@
 """Build world-viewer.html (a single self-contained page) for a worldbuilding project.
 
 Usage:
-    build_viewer.py <project-dir> [--out FILE] [--json-only] [--template PATH]
+    build_viewer.py <project-dir> [--out FILE] [--json-only] [--template PATH] [--embed-images]
 
 Reads assets/viewer/index.html (or --template), inlines the css/*.css files (sorted) at
 `<!--__CSS__-->` and the scripts at `<!--__JS__-->` (js/core.js, then js/views/*.js sorted, then
@@ -88,13 +88,16 @@ def main(argv=None):
     ap.add_argument("--out", help="output file (default: <project>/output/world-viewer.html)")
     ap.add_argument("--json-only", action="store_true", help="write viz.json instead of the HTML page")
     ap.add_argument("--template", help="HTML template path (default: assets/viewer/index.html)")
+    ap.add_argument(
+        "--embed-images", action="store_true", help="base64-encode entity images as data URIs for portability"
+    )
     args = ap.parse_args(argv)
 
     project = Path(args.project)
     if not (project / "project.yaml").exists():
         print(f"error: no project.yaml in {project}. Pass the project folder.", file=sys.stderr)
         return 1
-    data = viz_data.build_viz_data(project)
+    data = viz_data.build_viz_data(project, embed_images=args.embed_images)
 
     if args.json_only:
         out = Path(args.out) if args.out else project / "output" / "viz.json"

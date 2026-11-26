@@ -1,4 +1,4 @@
-// core.js: data, shared state, event bus, helpers and the detail panel. Defines the global WB.
+// core.js: data, shared state, event bus, helpers, lightbox and the detail panel. Defines the global WB.
 const DATA = /*__WORLD_DATA__*/null;
 const WB = (function () {
   'use strict';
@@ -73,6 +73,14 @@ const WB = (function () {
     return String(str === null || str === undefined ? '' : str).replace(/[&<>"']/g,
       (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   }
+  function safeImageSrc(src) {
+    if (typeof src !== 'string') return null;
+    const s = src.trim();
+    if (!s) return null;
+    if (s.startsWith('data:image/')) return s;
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) || s.startsWith('//')) return null;
+    return s;
+  }
   const cal = data.calendar;
   const span = () => Math.max(1e-9, (cal.t_max - cal.t_min));
   function tToX(t, w) { return ((t - cal.t_min) / span()) * w; }
@@ -125,8 +133,50 @@ const WB = (function () {
     const l = id ? lineage(id) : { up: new Set(), down: new Set() };
     focusCache = { id, up: l.up, down: l.down, hl: state.highlight };
   }
+
+  // ---- lightbox
+  let lbEl = null;
+  let lbReturnFocus = null;
+  function closeLightbox() {
+    if (!lbEl || lbEl.hidden) return;
+    lbEl.hidden = true;
+    lbEl.replaceChildren();
+    if (lbReturnFocus && typeof lbReturnFocus.focus === 'function') lbReturnFocus.focus();
+    lbReturnFocus = null;
+  }
+  function openLightbox(node, triggerEl) {
+    const src = node && safeImageSrc(node.image);
+    if (!src) return;
+    lbReturnFocus = triggerEl || document.activeElement;
+    if (!lbEl) {
+      lbEl = el('div', {
+        class: 'wb-lightbox', role: 'dialog', 'aria-modal': 'true', hidden: true,
+        onclick: (ev) => { if (ev.target === lbEl) closeLightbox(); },
+      });
+      document.body.appendChild(lbEl);
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape' && lbEl && !lbEl.hidden) { ev.preventDefault(); closeLightbox(); }
+      });
+    }
+    const closeBtn = el('button', { type: 'button', class: 'wb-lightbox-close', 'aria-label': 'Close artwork preview', onclick: closeLightbox, text: 'Close' });
+    const badge = el('span', { class: 'chip', style: 'border-color:' + (colors.type[node.type] || '#888') },
+      el('span', { class: 'dot', style: 'background:' + (colors.type[node.type] || '#888'), 'aria-hidden': 'true' }),
+      node.type);
+    lbEl.setAttribute('aria-label', node.name + ' artwork');
+    lbEl.replaceChildren(
+      el('div', { class: 'wb-lightbox-dialog' },
+        el('img', { class: 'wb-lightbox-img', src, alt: node.name + ' artwork' }),
+        el('div', { class: 'wb-lightbox-bar' },
+          el('div', { class: 'wb-lightbox-title' }, el('strong', { text: node.name }), badge,
+            node.date_label ? el('span', { class: 'muted', text: node.date_label }) : null),
+          closeBtn)),
+    );
+    lbEl.hidden = false;
+    closeBtn.focus();
+  }
+
   const WBobj = {
-    data, state, colors, bus, typeGlyph, edges, degree,
+    data, state, colors, bus, typeGlyph, edges, degree, openLightbox,
     focus() { return focusCache; },
     select(id) {
       const next = id && byId.has(id) ? id : null;
@@ -159,7 +209,7 @@ const WB = (function () {
       this.views.push(view);
       this.views.sort((a, b) => (a.order || 100) - (b.order || 100));
     },
-    util: { el, svg, fmtT, tToX, byId, esc, lineage, out, inn },
+    util: { el, svg, fmtT, tToX, byId, esc, safeImageSrc, lineage, out, inn },
   };
 
   // ---- detail panel
@@ -204,6 +254,21 @@ const WB = (function () {
       });
       if (rel.length) lists.push({ title: 'Related', items: rel, note: relNote });
 
+      const imgSrc = safeImageSrc(n.image);
+      let hero = null;
+      if (imgSrc) {
+        const fig = el('figure', { class: 'detail-hero' });
+        const img = el('img', { src: imgSrc, alt: n.name + ' artwork', loading: 'lazy' });
+        img.addEventListener('error', () => { fig.hidden = true; });
+        const btn = el('button', {
+          type: 'button', class: 'detail-hero-btn',
+          'aria-label': 'Expand artwork for ' + n.name,
+          onclick: () => openLightbox(n, btn),
+        }, img, el('span', { class: 'detail-hero-hint', 'aria-hidden': 'true', text: 'Expand' }));
+        fig.appendChild(btn);
+        hero = fig;
+      }
+
       const chip = el('span', { class: 'chip', style: 'border-color:' + (colors.type[n.type] || '#888') },
         el('span', { class: 'dot', style: 'background:' + (colors.type[n.type] || '#888'), 'aria-hidden': 'true' }),
         (typeGlyph[n.type] || '?') + ' ' + n.type);
@@ -227,11 +292,12 @@ const WB = (function () {
         if (tr.status) facts.push(['Status', tr.status]);
       }
       root.replaceChildren(
+        hero,
         el('h2', { text: n.name }), chip,
-        el('p', { class: 'muted', text: meta.join(' | ') }),
-        n.summary ? el('p', { text: n.summary }) : null,
+        el('p', { class: 'detail-meta', text: meta.join(' · ') }),
+        n.summary ? el('p', { class: 'detail-summary', text: n.summary }) : null,
         facts.length ? el('dl', {}, facts.map(([k, v]) => [el('dt', { text: k }), el('dd', { text: v })])) : null,
-        n.tags && n.tags.length ? el('p', { class: 'muted', text: 'tags: ' + n.tags.join(', ') }) : null,
+        n.tags && n.tags.length ? el('div', { class: 'detail-tags', 'aria-label': 'Tags' }, n.tags.map((t) => el('span', { class: 'detail-tag', text: '#' + t }))) : null,
         lists.length ? lists.map((l) => el('section', {},
           el('h3', { text: l.title + ' (' + l.items.length + ')' }),
           el('ul', { class: 'links' }, l.items.map((id) => {
@@ -245,7 +311,7 @@ const WB = (function () {
               onfocus: () => WBobj.highlight([id]),
               onblur: () => WBobj.highlight(null),
             }, el('span', { class: 'dot', style: 'background:' + (colors.type[m.type] || '#888'), 'aria-hidden': 'true' }),
-            m.name, el('span', { class: 'muted', text: ' ' + (typeGlyph[m.type] || '') + (note ? ' | ' + note : '') })));
+            m.name, el('span', { class: 'muted', text: ' ' + (typeGlyph[m.type] || '') + (note ? ' · ' + note : '') })));
           })))) : el('p', { class: 'muted', text: 'No linked items in the files.' }));
     },
   };

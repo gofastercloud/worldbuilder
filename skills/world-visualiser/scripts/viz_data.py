@@ -15,9 +15,11 @@ Python 3.9+, standard library only (PyYAML is vendored with validate.py).
 from __future__ import annotations
 
 import argparse
+import base64
 import importlib.util
 import json
 import math
+import os
 import re
 import sys
 from pathlib import Path
@@ -37,6 +39,13 @@ yaml = _v.yaml
 VERSION = 1
 LAYOUT_SIZE = 1000.0
 LAYOUT_ITERATIONS = 80
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp")
+IMAGE_MIME = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+}
 
 # Paul Tol "muted" qualitative palette (colour-blind safe), 10 colours.
 PALETTE = [
@@ -306,7 +315,52 @@ def _end_t(g, slug, node):
     return None if t is None or t == node["t"] else t
 
 
-def _nodes(g):
+def _is_within(path, root):
+    try:
+        path.resolve().relative_to(root.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def _find_image_file(project, ntype, slug, meta):
+    """Locate an entity's image inside <project> (frontmatter `image:` first, then output/images/<dir>/<slug>)."""
+    output_dir = project / "output"
+    raw = _str(meta.get("image"))
+    if raw and not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", raw):
+        for base in (output_dir, project):
+            cand = (base / raw).resolve()
+            if cand.suffix.lower() in IMAGE_MIME and _is_within(cand, project) and cand.is_file():
+                return cand
+    type_dir = _v.ENTITY_DIRS.get(ntype)
+    if type_dir:
+        folder = output_dir / "images" / type_dir
+        for ext in IMAGE_EXTS:
+            cand = folder / f"{slug}{ext}"
+            if cand.is_file():
+                return cand
+    return None
+
+
+def _node_image(project, ntype, slug, meta, *, embed=False):
+    """Return relative path from output/world-viewer.html, a data: URI when embed=True, or None."""
+    raw = _str(meta.get("image"))
+    if raw and raw.startswith("data:image/"):
+        return raw
+    path = _find_image_file(project, ntype, slug, meta)
+    if path is None:
+        return None
+    if embed:
+        mime = IMAGE_MIME.get(path.suffix.lower())
+        if not mime:
+            return None
+        b64 = base64.b64encode(path.read_bytes()).decode("ascii")
+        return f"data:{mime};base64,{b64}"
+    rel = os.path.relpath(path.resolve(), (project / "output").resolve())
+    return Path(rel).as_posix()
+
+
+def _nodes(g, project, *, embed_images=False):
     nodes = []
     for slug in sorted(g.nodes):
         n = g.nodes[slug]
@@ -322,6 +376,7 @@ def _nodes(g):
             "summary": n["summary"],
             "status": _str(meta.get("status")),
             "tags": _strs(meta.get("tags")),
+            "image": _node_image(project, n["type"], slug, meta, embed=embed_images),
         })  # fmt: skip
     return nodes
 
@@ -785,11 +840,11 @@ def _warnings(project_name, locations, routes, eco_err, economy, nodes, events, 
     return w
 
 
-def build_viz_data(project_dir):
+def build_viz_data(project_dir, *, embed_images=False):
     """Return the visualiser payload for a project directory (see references/data-format.md)."""
     project = Path(project_dir).resolve()
     g = _g.WorldGraph.from_project(project)
-    nodes = _nodes(g)
+    nodes = _nodes(g, project, embed_images=embed_images)
     nodes_by_id = {n["id"]: n for n in nodes}
     present_t = _present_t(g)
     cal = _calendar(g, [x for n in nodes for x in (n["t"], n["end_t"])], present_t)
@@ -834,11 +889,13 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Write the world visualiser JSON payload")
     ap.add_argument("project")
     ap.add_argument("--out", help="write here instead of stdout")
+    ap.add_argument("--embed-images", action="store_true", help="base64-encode discovered entity images as data URIs")
     args = ap.parse_args(argv)
     if not (Path(args.project) / "project.yaml").exists():
         print(f"error: no project.yaml in {args.project}", file=sys.stderr)
         return 1
-    text = json.dumps(build_viz_data(args.project), ensure_ascii=False, separators=(",", ":"))
+    payload = build_viz_data(args.project, embed_images=args.embed_images)
+    text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     if args.out:
         Path(args.out).write_text(text, encoding="utf-8")
     else:
