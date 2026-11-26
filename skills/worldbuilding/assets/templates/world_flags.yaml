@@ -2,7 +2,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 # Configuration flags that define the fundamental rules and constraints of the
 # world. These are used by:
-#   1. Claude — to stay on-rails when generating content
+#   1. The assistant — to stay on-rails when generating content
 #   2. The validator — to catch violations (e.g. guns in a no-gunpowder world)
 #   3. The editor personae — to check consistency during review passes
 #
@@ -265,7 +265,7 @@ geography:
     notes: ""
 
 # ── Narrative Constraints ─────────────────────────────────────────────────────
-# These affect how Claude writes, not just what exists in the world.
+# These affect how the assistant writes, not just what exists in the world.
 narrative:
   death_permanence:
     value: mostly            # always (dead is dead) | mostly (very rare resurrection) | sometimes (resurrection possible but costly) | revolving-door (death is cheap)

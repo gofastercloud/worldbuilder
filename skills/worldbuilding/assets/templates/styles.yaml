@@ -10,12 +10,12 @@
 #
 # The two-description system:
 #   1. human_description  — What a reader sees. Evocative, styled prose.
-#   2. machine_description — What Claude uses for consistent generation.
+#   2. machine_description — What the assistant uses for consistent generation.
 #                           Structured, factual, deterministic. No flourish.
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ─── PROSE STYLE ──────────────────────────────────────────────────────────────
-# Controls how Claude generates prose: voice, vocabulary, sentence structure.
+# Controls how the assistant generates prose: voice, vocabulary, sentence structure.
 prose_style:
   preset:
     type: enum

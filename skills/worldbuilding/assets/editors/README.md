@@ -6,7 +6,7 @@ for specific classes of problems.
 
 ## How to Use
 
-Load an editor's prompt into Claude directly:
+Load an editor's prompt into your assistant directly:
 ```
 Load the continuity editor from assets/editors/continuity.yaml and review chapters 1-5.
 ```

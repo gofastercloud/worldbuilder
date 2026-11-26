@@ -8,7 +8,7 @@ Every entity MUST have descriptions block with two variants. The system works be
 
 1. **machine_description** = SOURCE OF TRUTH
    - Structured, factual, deterministic
-   - Claude reads this during generation for consistency
+   - The assistant reads this during generation for consistency
    - Never styled, no flowery language
    - Written once, reused everywhere
 
@@ -163,7 +163,7 @@ All derived from the same machine_description, styled differently.
 
 | Situation | Use |
 |-----------|-----|
-| Claude generating prose or dialogue | machine_description |
+| Generating prose or dialogue | machine_description |
 | Proofreader/editor reviewing text | human_description |
 | World-building document | machine_description |
 | Published novel text | human_description |

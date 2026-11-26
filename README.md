@@ -1,66 +1,84 @@
 # WorldBuilder
 
-A Claude plugin for building fictional worlds that stay internally consistent. History, geography, climate, economy, peoples, magic and folklore are generated as linked Markdown files, and a built-in checker catches contradictions: broken links, one-way relationships, causes dated after their effects, characters acting after death, content that breaks your world rules.
+A multi-agent plugin (**Antigravity**, **Claude Code / Cowork**, and **Codex**) for building fictional worlds that stay internally consistent. History, geography, climate, economy, peoples, magic, and folklore are generated as linked Markdown files, a built-in checker catches contradictions, and an interactive single-file viewer lets you explore your world in 3D and 2D.
 
-It works in Claude Code and Cowork. Everything is plain files (YAML frontmatter plus Markdown), so a world is easy to read, edit and keep in git.
+Everything is plain files (YAML frontmatter plus Markdown) and zero-dependency Python 3.9+ scripts (PyYAML is vendored), so a world is easy to read, edit, and version with Git — and runs natively inside desktop agent clients.
 
 ## What it does differently
 
 - **Causal chains.** Every significant event records its causes and consequences. You can ask why something is the way it is (`why`) and what a change would affect (`impact`).
-- **Two chains: truth and memory.** Myths, legends, customs and superstitions are modelled as traditions that descend from real events and distort them for named reasons, so a chain can end in the past and leave only a story.
+- **Two chains: truth and memory.** Myths, legends, customs, and superstitions are modelled as traditions that descend from real events and distort them for named reasons, so a chain can end in the past and leave only a story.
 - **A magic yes/no gate.** If your world has no magic, nothing supernatural gets written, and the checker enforces it.
-- **A causal order for generation.** Geography and climate first, then resources, peoples, economy, history and folklore, so each layer follows from the last.
+- **A causal order for generation.** Geography and climate first, then resources, peoples, economy, history, and folklore, so each layer follows from the last.
+- **Interactive world visualiser.** Builds a self-contained `output/world-viewer.html` with a 3D causal graph, timeline, map, trade network, and climate/life views.
 
 ## Install
 
-In Cowork: Customize, then Plugins, then upload this folder as a zip or add the repository as a marketplace.
+### Antigravity (Gemini)
 
-In Claude Code:
+Link or copy this repository into your global or workspace plugins folder:
+
+- Global: `~/.gemini/config/plugins/worldbuilder/`
+- Workspace: `.agents/plugins/worldbuilder/`
+
+Antigravity automatically discovers `plugin.json` and all 14 skills under `skills/`.
+
+### Claude Code & Cowork
+
+- **Cowork:** Customize → Plugins → upload this folder as a zip or add the repository as a marketplace.
+- **Claude Code:**
 
 ```bash
 claude --plugin-dir /path/to/worldbuilder
 ```
 
+### Codex
+
+Copy or symlink the folders inside `skills/` into `~/.codex/skills/` (or `.codex/skills/` in a workspace).
+
 ## Use
 
-| Command | What it does |
-|---|---|
-| `/wb-new` | Start a project with a few guided questions |
-| `/wb-wizard` | Full guided or YOLO world creation, validated at each stage |
-| `/wb-validate` | Check the world for contradictions and fix them |
-| `/wb-review` | Editorial review of prose against the world |
-| `/wb-write`, `/wb-story`, `/wb-campaign` | Chapters, stories and campaign material |
-| `/wb-compile` | Export a manuscript as Markdown or HTML |
-| `/wb-readability` | Prose statistics |
+Just talk to your agent — the skills load automatically when you ask to start a world, add geography, design an economy or species, check consistency, or visualise your world.
 
-You can also just talk to Claude: the skills load when you ask about geography, an economy, a species, a myth and so on.
+In Claude Code / Cowork, you can also invoke the slash commands directly:
+
+| Command | Skill | What it does |
+|---|---|---|
+| `/wb-new` | `world-wizard` | Start a project with a few guided questions |
+| `/wb-wizard` | `world-wizard` | Full guided or YOLO world creation, validated at each stage |
+| `/wb-validate` | `world-validate` | Check the world for contradictions and fix them |
+| `/wb-visualise` | `world-visualiser` | Build the interactive HTML viewer (3D causal graph, timeline, map, trade, life) |
+| `/wb-review` | `world-review` | Editorial review of prose against the world |
+| `/wb-write`, `/wb-story`, `/wb-campaign` | `writing` | Chapters, short stories, and campaign material |
+| `/wb-compile` | `world-compile` | Export a manuscript as Markdown or HTML |
+| `/wb-readability` | `prose-check` | Prose readability statistics |
 
 ## Skills
 
-`worldbuilding` (core rules and routing), `world-wizard`, `history-and-events`, `geography-and-climate`, `economy-and-trade`, `peoples`, `magic-systems`, `folklore-and-traditions`, `writing`, `world-review`, `world-validate`, `prose-check`, `world-compile`.
+`worldbuilding` (core rules and routing), `world-wizard`, `history-and-events`, `geography-and-climate`, `economy-and-trade`, `peoples`, `magic-systems`, `folklore-and-traditions`, `writing`, `world-review`, `world-validate`, `prose-check`, `world-compile`, `world-visualiser`.
 
-A complete example world, The Lattice (a science-fiction setting with magic off), is in `skills/worldbuilding/assets/example-the-lattice/`.
+A complete example world, **The Lattice** (a science-fiction setting with magic off), is in `skills/worldbuilding/assets/example-the-lattice/`.
 
-## The checker
+## Scripts
 
-The scripts need only Python 3.9 or newer; PyYAML is bundled.
+All scripts require only Python 3.9+ (PyYAML is bundled):
 
 ```bash
 python3 skills/world-validate/scripts/validate.py <project-dir>
 python3 skills/world-validate/scripts/graph.py <project-dir> why <event-slug>
 python3 skills/world-validate/scripts/graph.py <project-dir> impact <slug>
-python3 skills/world-validate/scripts/graph.py <project-dir> export --out graph.json
+python3 skills/world-visualiser/scripts/build_viewer.py <project-dir>
+python3 skills/world-compile/scripts/compile.py <project-dir> --format md
+python3 skills/prose-check/scripts/readability.py <path>
 ```
 
 ## Development
 
 ```bash
-uv sync
-uv run pytest -q
-uv run ruff check .
+make verify
 ```
 
-Contributor rules are in `CLAUDE.md`.
+Contributor rules are in [AGENTS.md](./AGENTS.md).
 
 ## Licence
 

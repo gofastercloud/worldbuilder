@@ -2,7 +2,8 @@
   "name": "worldbuilder",
   "displayName": "WorldBuilder",
   "version": "0.1.0",
-  "description": "Build internally consistent fictional worlds: history, geography, climate, economy, peoples and events linked by causal chains and checked for contradictions.",
+  "description": "Build internally consistent fictional worlds: history, geography, climate, economy, peoples, folklore and events linked by causal chains, checked for contradictions and explored in an interactive viewer.",
   "author": { "name": "Dave Barton" },
+  "repository": "https://github.com/gofastercloud/worldbuilder",
   "license": "Apache-2.0"
 }

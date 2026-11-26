@@ -1,7 +1,7 @@
 [project]
 name = "worldbuilder"
 version = "0.1.0"
-description = "Claude plugin for building internally consistent fictional worlds"
+description = "Multi-agent plugin (Antigravity, Claude, Codex) for building internally consistent fictional worlds"
 requires-python = ">=3.9"
 # No runtime dependencies: the plugin's scripts use the standard library and a vendored copy of PyYAML.
 dependencies = []

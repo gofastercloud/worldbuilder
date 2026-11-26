@@ -1,6 +1,6 @@
 # Editors Reference
 
-9 specialized Claude personas that review and validate content. Each focuses on one aspect of quality.
+9 specialized editorial personas that review and validate content. Each focuses on one aspect of quality.
 
 ## Editor Overview
 

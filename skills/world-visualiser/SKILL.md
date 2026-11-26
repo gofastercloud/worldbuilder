@@ -9,8 +9,10 @@ Turns the project's files into one self-contained page, `output/world-viewer.htm
 
 ## Build it
 
+Run [scripts/build_viewer.py](./scripts/build_viewer.py) (resolved relative to this skill's directory):
+
 ```bash
-python3 "${CLAUDE_SKILL_DIR}/scripts/build_viewer.py" <project-dir>
+python3 <this-skill-dir>/scripts/build_viewer.py <project-dir>
 ```
 
 Options: `--out FILE` to write elsewhere, `--json-only` to write `viz.json` instead of the page, `--template PATH` to use another shell (its `css/` and `js/` folders sit beside it). The sources are in `assets/viewer/`; the build inlines them into one file. The script exits with an error if the folder has no `project.yaml`. It prints any data warnings (for example `0 locations have climate data`).

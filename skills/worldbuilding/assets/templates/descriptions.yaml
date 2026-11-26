@@ -8,7 +8,7 @@
 #      → "Kael stood on the battlements, the scar on his jaw a pale reminder..."
 #
 #   2. machine_description
-#      → For Claude during prose generation. Structured, factual, deterministic.
+#      → For the assistant during prose generation. Structured, factual, deterministic.
 #      → Ensures consistency across chapters. No purple prose, just facts.
 #      → "Kael Dawnblade: 22yo male human (Valdrian). 6'1", lean/athletic.
 #         Dark hair, short military cut. Golden-brown eyes (Dawnblade trait).

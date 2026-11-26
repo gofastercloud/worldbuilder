@@ -9,8 +9,10 @@ Join the chapters into one manuscript. Run the script, then tell the user where 
 
 ## Run
 
+Run [scripts/compile.py](./scripts/compile.py) (resolved relative to this skill's directory):
+
 ```
-python3 "${CLAUDE_SKILL_DIR}/scripts/compile.py" <project> --format md
+python3 <this-skill-dir>/scripts/compile.py <project> --format md
 ```
 
 Use `--format html` for a single HTML page, or `--out <file>` to choose the output path. The default output is `<project>/output/manuscript.md` or `.html`. The script needs only Python 3.9+; PyYAML is bundled.

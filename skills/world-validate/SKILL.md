@@ -9,8 +9,10 @@ Run the checker, read its findings, fix the real problems, rerun.
 
 ## Run
 
+Run [scripts/validate.py](./scripts/validate.py) (resolved relative to this skill's directory):
+
 ```
-python3 "${CLAUDE_SKILL_DIR}/scripts/validate.py" <project-dir>
+python3 <this-skill-dir>/scripts/validate.py <project-dir>
 ```
 
 Options: `--json` for machine-readable output, `--severity error` to hide warnings. Exit code 1 means at least one error. The script needs only Python 3.9+; PyYAML is bundled.
@@ -19,10 +21,10 @@ If `python3` is missing or the script cannot run, tell the user, then do the che
 
 ## Tracing causes and consequences
 
-`graph.py` builds the world as a graph (entities as nodes, typed links as edges):
+`graph.py` ([scripts/graph.py](./scripts/graph.py)) builds the world as a graph (entities as nodes, typed links as edges):
 
 ```
-python3 "${CLAUDE_SKILL_DIR}/scripts/graph.py" <project-dir> <command> [args]
+python3 <this-skill-dir>/scripts/graph.py <project-dir> <command> [args]
 ```
 
 - `why <slug>`: the full upstream causal ancestry of an event, down to its root causes. Use it to check an event really is explained. For a tradition it lists the origin events first (marked `[memory link: origin of tradition]`, since a tradition is remembered from an event, not caused by it) and then each event's causal ancestry.
@@ -62,12 +64,12 @@ Warnings:
 
 ## How other skills call this
 
-Other skills say "load `world-validate` and use its scripts". `${CLAUDE_SKILL_DIR}` resolves to the folder of the skill that is loaded, so these commands work only after this skill is loaded, from any working directory:
+Other skills say "load `world-validate` and use its scripts". Resolve `<this-skill-dir>` to the directory containing this `SKILL.md` file (so the commands work from any working directory in Antigravity, Claude, or Codex):
 
 ```
-python3 "${CLAUDE_SKILL_DIR}/scripts/validate.py" <project-dir>
-python3 "${CLAUDE_SKILL_DIR}/scripts/graph.py" <project-dir> why <event-slug>
-python3 "${CLAUDE_SKILL_DIR}/scripts/graph.py" <project-dir> impact <slug>
+python3 <this-skill-dir>/scripts/validate.py <project-dir>
+python3 <this-skill-dir>/scripts/graph.py <project-dir> why <event-slug>
+python3 <this-skill-dir>/scripts/graph.py <project-dir> impact <slug>
 ```
 
 ## Fixing findings

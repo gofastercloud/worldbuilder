@@ -5,10 +5,10 @@ description: Measure prose readability for worldbuilder chapters, entities and s
 
 # Prose check
 
-Run the stdlib-only readability report on a file or folder:
+Run the stdlib-only readability report ([scripts/readability.py](./scripts/readability.py), resolved relative to this skill's directory) on a file or folder:
 
 ```
-python3 "${CLAUDE_SKILL_DIR}/scripts/readability.py" <path> [--json]
+python3 <this-skill-dir>/scripts/readability.py <path> [--json]
 ```
 
 Pass a single `.md` file, or a folder (searched recursively, files starting with `_` skipped). Frontmatter is stripped. Use `--json` when you need to inspect the numbers programmatically.

@@ -19,10 +19,10 @@ Never silently default magic. Always ask the magic question even in YOLO unless 
 ## Step 1: set up the project
 
 1. Choose the folder. Use the path given, otherwise ask where it should live. If the folder already holds a `project.yaml`, stop and ask: this is an existing project, use the `worldbuilding` skill instead.
-2. Create `project.yaml` from `${CLAUDE_SKILL_DIR}/../worldbuilding/assets/templates/project_template.yaml`. Fill `title`, `genre`, `type`, `tone`, `style.prose.preset` and the `world_flags` as you learn them. Remove the unused template comments if they are noise.
+2. Create `project.yaml` from [project_template.yaml](../worldbuilding/assets/templates/project_template.yaml). Fill `title`, `genre`, `type`, `tone`, `style.prose.preset` and the `world_flags` as you learn them. Remove the unused template comments if they are noise.
 3. Create the directories: `world/characters`, `world/locations`, `world/factions`, `world/items`, `world/magic-systems` (only if magic is allowed), `world/arcs`, `world/events`, `world/species`, `world/races`, `world/languages`, `world/lineages`, `world/traditions`, `world/history`. Put an empty `.gitkeep` in directories that stay empty if the folder is under git.
 4. Create `world/history/calendar.yaml` (the validator reads this file, not `project.yaml`). Defer the eras until stage 6, but write the skeleton now: name, epoch, and the era or eras you already know. Each era needs a short unique `prefix` and a strictly increasing `sort_order`. Copy the format from the `history-and-events` skill's `references/calendar-and-eras.md`. Mirror `name`, `epoch` and `format` in the `calendar:` block of `project.yaml`.
-5. Entity files come from the templates in `${CLAUDE_SKILL_DIR}/../worldbuilding/assets/templates/<type>/_template.md` (or `.yaml`) with the schema in the same folder.
+5. Entity files come from the templates in `../worldbuilding/assets/templates/<type>/_template.md` (or `.yaml`) relative to this skill's directory, with the schema in the same folder.
 
 ## Step 2: ask the flags
 
@@ -63,10 +63,10 @@ Rules for every stage:
 
 ## Validate
 
-After each stage:
+After each stage, run [validate.py](../world-validate/scripts/validate.py) (resolved relative to this skill's directory):
 
 ```
-python3 "${CLAUDE_SKILL_DIR}/../world-validate/scripts/validate.py" <project-dir>
+python3 <this-skill-dir>/../world-validate/scripts/validate.py <project-dir>
 ```
 
 Load the `world-validate` skill for options and for what each finding means. Fix every error before moving on. Early stages will show warnings about layers not yet written (no events, no factions); note them and do not chase them yet. If `python3` is unavailable, use the by-hand checks in `worldbuilding` and say the validation was manual.

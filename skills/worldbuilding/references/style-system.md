@@ -4,7 +4,7 @@ Controls all generated prose and descriptions. Cascades from project → book �
 
 ## Prose Style Presets (14)
 
-Controls how Claude generates prose: voice, vocabulary, pacing, content.
+Controls how the assistant generates prose: voice, vocabulary, pacing, content.
 
 | Preset | Voice | Pace | Best For |
 |--------|-------|------|----------|
@@ -97,6 +97,6 @@ Example: Project uses prose_style=literary, but Chapter 5 overrides to noir → 
 
 - **Prose style** affects human-readable prose generation
 - **Voice/POV/tense** locked at project level for consistency (can override per-book carefully)
-- **Content rating** filters what kinds of scenes Claude will write (locked to project level)
-- **machine_description** is NEVER styled — it's raw facts for Claude's reference
+- **Content rating** filters what kinds of scenes the assistant will write (locked to project level)
+- **machine_description** is NEVER styled — it's raw facts for the assistant's reference
 - **human_description** is derived from machine_description + prose_style settings

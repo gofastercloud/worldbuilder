@@ -50,7 +50,7 @@ calendar:
 # Start from the genre defaults (preset_defaults in world_flags.yaml); the user's answers override.
 # MAGIC GATE: ask the user yes/no for magic.present first. If false, set prevalence: none and
 # create no magic of any kind in any domain.
-# Claude uses these to stay consistent when generating content.
+# The assistant uses these to stay consistent when generating content.
 # The validator uses these to catch violations.
 # See templates/world_flags.yaml for full documentation.
 world_flags:
