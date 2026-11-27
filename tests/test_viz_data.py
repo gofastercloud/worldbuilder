@@ -30,7 +30,7 @@ bv = _load("build_viewer_under_test", SKILL / "scripts" / "build_viewer.py")
 
 TOP_KEYS = {
     "version", "project", "counts", "calendar", "nodes", "edges", "timeline",
-    "map", "climate", "life", "economy", "warnings",
+    "map", "climate", "life", "economy", "content", "warnings",
 }  # fmt: skip
 
 CALENDAR = """

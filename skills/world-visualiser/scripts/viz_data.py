@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import html as _html
 import importlib.util
 import json
 import math
@@ -868,6 +869,214 @@ def _economy(g, eco, locations, trade_routes):
     return {"resources": resources, "trade_routes": trade_routes, "currencies": currencies, "shocks": shocks}
 
 
+# ── content (stories, campaigns, chapters) ─────────────────────────────────
+
+
+def _parse_frontmatter(raw):
+    if raw.startswith("---\n") or raw.startswith("---\r\n"):
+        lines = raw.splitlines()
+        for idx in range(1, len(lines)):
+            if lines[idx].strip() == "---":
+                fm_text = "\n".join(lines[1:idx])
+                body = "\n".join(lines[idx + 1 :]).lstrip("\n")
+                try:
+                    meta = yaml.safe_load(fm_text)
+                except yaml.YAMLError:
+                    meta = {}
+                return (meta if isinstance(meta, dict) else {}), body
+    return {}, raw
+
+
+def _md_inline(text, known_ids):
+    """Escape HTML and apply inline Markdown (code/entity-links, bold, italic)."""
+    esc = _html.escape(text, quote=True)
+    # Protect inline code first so asterisks inside code are untouched.
+    tokens = []
+
+    def _code_sub(m):
+        raw_code = m.group(1)
+        idx = len(tokens)
+        if raw_code in known_ids:
+            tokens.append(
+                f'<button type="button" class="cnt-entity-link" data-entity="{raw_code}">{raw_code}</button>'
+            )
+        else:
+            tokens.append(f"<code>{raw_code}</code>")
+        return f"\x00CODE{idx}\x00"
+
+    esc = re.sub(r"`([^`]+)`", _code_sub, esc)
+    esc = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", esc)
+    esc = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<em>\1</em>", esc)
+    for idx, rep in enumerate(tokens):
+        esc = esc.replace(f"\x00CODE{idx}\x00", rep)
+    return esc
+
+
+def _md_to_html(md_text, known_ids):
+    """Lightweight, XSS-safe Markdown-to-HTML converter (stdlib only)."""
+    lines = md_text.splitlines()
+    out = []
+    i = 0
+    n = len(lines)
+
+    while i < n:
+        line = lines[i]
+        stripped = line.strip()
+        if not stripped:
+            i += 1
+            continue
+
+        # Horizontal rule
+        if re.match(r"^([-*_])\1{2,}$", stripped):
+            out.append("<hr>")
+            i += 1
+            continue
+
+        # Headings (# .. ####)
+        hm = re.match(r"^(#{1,4})\s+(.*)$", stripped)
+        if hm:
+            lvl = len(hm.group(1))
+            out.append(f"<h{lvl}>{_md_inline(hm.group(2).strip(), known_ids)}</h{lvl}>")
+            i += 1
+            continue
+
+        # Blockquote (supports multi-line D&D read-aloud boxes)
+        if stripped.startswith(">"):
+            bq_lines = []
+            while i < n and lines[i].strip().startswith(">"):
+                bq_lines.append(lines[i].strip().lstrip(">").strip())
+                i += 1
+            inner = "<br>".join(_md_inline(x, known_ids) for x in bq_lines if x)
+            out.append(f"<blockquote><p>{inner}</p></blockquote>")
+            continue
+
+        # Markdown table
+        if "|" in stripped and i + 1 < n and re.match(r"^\|?[\s:|-]+\|[\s:|-]*$", lines[i + 1].strip()):
+            header_cells = [c.strip() for c in stripped.strip("|").split("|")]
+            i += 2
+            rows = []
+            while i < n and "|" in lines[i].strip():
+                rows.append([c.strip() for c in lines[i].strip().strip("|").split("|")])
+                i += 1
+            ths = "".join(f"<th>{_md_inline(c, known_ids)}</th>" for c in header_cells)
+            trs = "".join(
+                "<tr>" + "".join(f"<td>{_md_inline(c, known_ids)}</td>" for c in row) + "</tr>"
+                for row in rows
+            )
+            out.append(
+                f'<div class="cnt-table-wrap"><table><thead><tr>{ths}</tr></thead>'
+                f"<tbody>{trs}</tbody></table></div>"
+            )
+            continue
+
+        # Unordered list
+        if re.match(r"^[-*+]\s+", stripped):
+            items = []
+            while i < n and re.match(r"^[-*+]\s+", lines[i].strip()):
+                items.append(re.sub(r"^[-*+]\s+", "", lines[i].strip()))
+                i += 1
+            lis = "".join(f"<li>{_md_inline(it, known_ids)}</li>" for it in items)
+            out.append(f"<ul>{lis}</ul>")
+            continue
+
+        # Ordered list
+        if re.match(r"^\d+\.\s+", stripped):
+            items = []
+            while i < n and re.match(r"^\d+\.\s+", lines[i].strip()):
+                items.append(re.sub(r"^\d+\.\s+", "", lines[i].strip()))
+                i += 1
+            lis = "".join(f"<li>{_md_inline(it, known_ids)}</li>" for it in items)
+            out.append(f"<ol>{lis}</ol>")
+            continue
+
+        # Paragraph (collect consecutive plain lines)
+        para = [stripped]
+        i += 1
+        while i < n:
+            nxt = lines[i].strip()
+            if (
+                not nxt
+                or re.match(r"^(#{1,4}\s+|[-*+]\s+|\d+\.\s+|>|([-*_])\2{2,}$)", nxt)
+                or ("|" in nxt and i + 1 < n and re.match(r"^\|?[\s:|-]+\|[\s:|-]*$", lines[i + 1].strip()))
+            ):
+                break
+            para.append(nxt)
+            i += 1
+        out.append(f"<p>{_md_inline(' '.join(para), known_ids)}</p>")
+
+    return "\n".join(out)
+
+
+def _content_items(project, known_ids):
+    """Discover stories, D&D 5e campaigns, and chapters inside a project directory."""
+    specs = [
+        (project / "stories", "story", False),
+        (project / "story" / "chapters", "chapter", True),
+        (project / "output" / "stories", "story", False),
+        (project / "output" / "campaigns", "campaign", False),
+    ]
+    items = []
+    seen_paths = set()
+
+    for folder, default_kind, recursive in specs:
+        if not folder.is_dir():
+            continue
+        files = sorted(folder.rglob("*.md") if recursive else folder.glob("*.md"))
+        for fp in files:
+            if not fp.is_file():
+                continue
+            rel = fp.relative_to(project).as_posix()
+            if rel in seen_paths:
+                continue
+            seen_paths.add(rel)
+            try:
+                raw = fp.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            meta, body = _parse_frontmatter(raw)
+            title = _str(meta.get("title")) or _str(meta.get("name"))
+            if not title:
+                for line in body.splitlines():
+                    hm = re.match(r"^#\s+(.+)$", line.strip())
+                    if hm:
+                        title = hm.group(1).strip()
+                        break
+            title = title or fp.stem.replace("-", " ").title()
+            kind = _str(meta.get("kind")) or default_kind
+            is_brief = fp.stem.endswith("-brief") or bool(meta.get("is_brief"))
+            words = len(re.findall(r"\b\w+\b", body))
+            read_mins = max(1, round(words / 220))
+            summary = _str(meta.get("summary"))
+            if not summary:
+                for line in body.splitlines():
+                    s = line.strip()
+                    if s and not s.startswith(("#", "-", "*", ">", "|")) and not re.match(r"^\d+\.", s):
+                        summary = s[:180].rstrip() + ("…" if len(s) > 180 else "")
+                        break
+            items.append({
+                "id": _v.slugify(f"{kind}-{fp.stem}"),
+                "title": title,
+                "kind": kind,
+                "is_brief": is_brief,
+                "rel_path": rel,
+                "date": _str(meta.get("date")) or _str(meta.get("timeline_start")),
+                "era": _str(meta.get("era")),
+                "anchor": _str(meta.get("anchor")),
+                "system": _str(meta.get("system")),
+                "level": _str(meta.get("level")),
+                "subgenre": _str(meta.get("subgenre")),
+                "summary": summary or "",
+                "word_count": words,
+                "read_minutes": read_mins,
+                "markdown": body,
+                "html": _md_to_html(body, known_ids),
+            })
+
+    kind_rank = {"story": 0, "campaign": 1, "chapter": 2}
+    items.sort(key=lambda x: (x["is_brief"], kind_rank.get(x["kind"], 9), x["title"].lower()))
+    return items
+
+
 def _warnings(project_name, locations, routes, eco_err, economy, nodes, events, cal):
     w = []
     nloc = len(locations)
@@ -936,6 +1145,8 @@ def build_viz_data(project_dir, *, embed_images=False):
                   trade_routes=len(trade_routes), species_index=0)  # fmt: skip
     life = _life(locations)
     counts["species_index"] = len(life)
+    content = _content_items(project, set(nodes_by_id))
+    counts["content"] = len(content)
 
     return {
         "version": VERSION,
@@ -953,6 +1164,7 @@ def build_viz_data(project_dir, *, embed_images=False):
         "climate": climate,
         "life": {"species_index": life},
         "economy": economy,
+        "content": content,
         "warnings": _warnings(project.name, locations, mp["routes"], eco_err, economy, nodes,
                               timeline["events"], cal),  # fmt: skip
     }
