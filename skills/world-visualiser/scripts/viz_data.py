@@ -759,7 +759,8 @@ def _economy_trade_routes(g, eco):
         while rid in seen:
             rid += "-x"
         seen.add(rid)
-        frm, to = _str(r.get("from_location")), _str(r.get("to_location"))
+        frm = _str(r.get("from_location")) or _str(r.get("from"))
+        to = _str(r.get("to_location")) or _str(r.get("to"))
         goods = []
         for gd in r.get("goods") or []:
             if isinstance(gd, str):

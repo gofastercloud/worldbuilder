@@ -90,7 +90,31 @@
   perspective: 1100px;
 }
 .gal-card-wrap {
+  position: relative;
   perspective: 900px;
+}
+.gal-speak-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 4;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-glow);
+  background: var(--glass-strong);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--fg);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+.gal-speak-btn:hover { transform: scale(1.05); border-color: var(--accent); }
+.gal-speak-btn.playing {
+  border-color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 28%, var(--glass-strong));
 }
 .gal-card {
   position: relative;

@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   if (typeof WB === 'undefined' || !WB || !WB.registerView) return;
-  const { el, svg, safeImageSrc } = WB.util;
+  const { el, svg, safeImageSrc, safeAudioSrc } = WB.util;
   const D = WB.data;
 
   function hashStr(str) {
@@ -213,12 +213,23 @@
               n.summary ? el('p', { class: 'gal-summary', text: n.summary }) : null));
 
             attachTilt(card);
-            return el('div', { class: 'gal-card-wrap' }, card);
+            const hasVoice = !!(WB.audio && safeAudioSrc(n.audio));
+            const isSpk = hasVoice && WB.audio.speakingId() === n.id;
+            const speakBtn = hasVoice ? el('button', {
+              type: 'button',
+              class: 'gal-speak-btn' + (isSpk ? ' playing' : ''),
+              'aria-pressed': String(isSpk),
+              'aria-label': isSpk ? 'Stop ' + n.name + ' speaking' : 'Hear ' + n.name + ' speak',
+              onclick: (ev) => { ev.stopPropagation(); WB.audio.playVoice(n); },
+              text: isSpk ? '⏹ Stop' : '🔊 Speak',
+            }) : null;
+            return el('div', { class: 'gal-card-wrap' }, card, speakBtn);
           }));
 
         scroll.replaceChildren(...[artBanner, grid].filter(Boolean));
       }
 
+      WB.bus.on('audio', render);
       this.onSelect = () => render();
       this.onFilter = () => render();
       this.activate = () => render();
