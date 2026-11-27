@@ -46,6 +46,13 @@ IMAGE_MIME = {
     ".jpeg": "image/jpeg",
     ".webp": "image/webp",
 }
+AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".m4a")
+AUDIO_MIME = {
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".ogg": "audio/ogg",
+    ".m4a": "audio/mp4",
+}
 
 # Paul Tol "muted" qualitative palette (colour-blind safe), 10 colours.
 PALETTE = [
@@ -360,6 +367,66 @@ def _node_image(project, ntype, slug, meta, *, embed=False):
     return Path(rel).as_posix()
 
 
+def _find_audio_file(project, ntype, slug, meta):
+    """Locate an entity's audio clip inside <project> (frontmatter `audio:` first, then output/audio/<dir>/<slug>)."""
+    output_dir = project / "output"
+    raw = _str(meta.get("audio"))
+    if raw and not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", raw):
+        for base in (output_dir, project):
+            cand = (base / raw).resolve()
+            if cand.suffix.lower() in AUDIO_MIME and _is_within(cand, project) and cand.is_file():
+                return cand
+    type_dir = _v.ENTITY_DIRS.get(ntype)
+    if type_dir:
+        folder = output_dir / "audio" / type_dir
+        for ext in AUDIO_EXTS:
+            cand = folder / f"{slug}{ext}"
+            if cand.is_file():
+                return cand
+    return None
+
+
+def _encode_or_rel(path, project, mime_map, *, embed=False):
+    if path is None:
+        return None
+    if embed:
+        mime = mime_map.get(path.suffix.lower())
+        if not mime:
+            return None
+        b64 = base64.b64encode(path.read_bytes()).decode("ascii")
+        return f"data:{mime};base64,{b64}"
+    rel = os.path.relpath(path.resolve(), (project / "output").resolve())
+    return Path(rel).as_posix()
+
+
+def _node_audio(project, ntype, slug, meta, *, embed=False):
+    """Return relative path from output/world-viewer.html, a data:audio/ URI when embed=True, or None."""
+    raw = _str(meta.get("audio"))
+    if raw and raw.startswith("data:audio/"):
+        return raw
+    return _encode_or_rel(_find_audio_file(project, ntype, slug, meta), project, AUDIO_MIME, embed=embed)
+
+
+def _project_audio(project, config, *, embed=False):
+    """Locate world soundtrack (config `audio:` override, or output/audio/theme.* / soundtrack.*)."""
+    output_dir = project / "output"
+    raw = _str((config or {}).get("audio")) if isinstance(config, dict) else None
+    if raw and raw.startswith("data:audio/"):
+        return raw
+    if raw and not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", raw):
+        for base in (output_dir, project):
+            cand = (base / raw).resolve()
+            if cand.suffix.lower() in AUDIO_MIME and _is_within(cand, project) and cand.is_file():
+                return _encode_or_rel(cand, project, AUDIO_MIME, embed=embed)
+    audio_dir = output_dir / "audio"
+    for stem in ("theme", "soundtrack"):
+        for ext in AUDIO_EXTS:
+            cand = audio_dir / f"{stem}{ext}"
+            if cand.is_file():
+                return _encode_or_rel(cand, project, AUDIO_MIME, embed=embed)
+    return None
+
+
 def _nodes(g, project, *, embed_images=False):
     nodes = []
     for slug in sorted(g.nodes):
@@ -377,6 +444,7 @@ def _nodes(g, project, *, embed_images=False):
             "status": _str(meta.get("status")),
             "tags": _strs(meta.get("tags")),
             "image": _node_image(project, n["type"], slug, meta, embed=embed_images),
+            "audio": _node_audio(project, n["type"], slug, meta, embed=embed_images),
         })  # fmt: skip
     return nodes
 
@@ -870,7 +938,11 @@ def build_viz_data(project_dir, *, embed_images=False):
 
     return {
         "version": VERSION,
-        "project": {"name": str(g.config.get("title") or project.name), "present_t": present_t},
+        "project": {
+            "name": str(g.config.get("title") or project.name),
+            "present_t": present_t,
+            "audio": _project_audio(project, g.config, embed=embed_images),
+        },
         "counts": counts,
         "calendar": cal,
         "nodes": nodes,

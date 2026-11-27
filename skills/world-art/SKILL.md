@@ -87,13 +87,21 @@ When the user asks to illustrate multiple entities (for example, all main charac
 
 ## Updating the viewer
 
-After saving new or updated images, load the `world-visualiser` skill and rebuild the interactive viewer so the new artwork appears in the entity detail panel:
+After saving new or updated images or audio, load the `world-visualiser` skill and rebuild the interactive viewer so the new artwork, looping soundtrack and character voice buttons appear automatically:
 
 ```bash
-python3 <world-visualiser-dir>/scripts/build_viewer.py <project-dir>
+python3 <world-visualiser-dir>/scripts/build_viewer.py <project-dir> --embed-media
 ```
 
-Tell the user the saved image paths and the rebuilt `output/world-viewer.html` path.
+Tell the user the saved asset paths and the rebuilt `output/world-viewer.html` path.
+
+## Soundtracks & Character Voices (Audio via `fal` MCP)
+
+The same `fal` OAuth MCP server also supports low-cost **music** and **text-to-speech**:
+
+- **World soundtrack (looping in the visualiser header with a mute toggle):** Save to `<project>/output/audio/theme.mp3` (or `.wav`/`.ogg`). Prefer cost-effective instrumental models such as `google/lyria-3.5` (~$0.10/generation; pass `prompt` only — Lyria 3.5 does not accept `negative_prompt` — and specify "strictly instrumental, no vocals" in the prompt).
+- **Character voice samples ("Hear them speak" buttons in the Entity list and Detail panel):** Save to `<project>/output/audio/characters/<slug>.mp3` (or `.wav`). Prefer low-cost expressive TTS such as `google/gemini-3.8-flash-tts` (~$0.045 per 1,000 characters — keep lines to 1–2 crisp sentences, ~$0.005 each).
+- Always log audio and music runs to `<project>/output/art-usage.yaml` via `scripts/log_usage.py record` (using `--unit generations` or `--unit characters` and `--cost-usd`) so every world tracks its total media spend.
 
 ## Graceful fallback when not signed in to `fal`
 

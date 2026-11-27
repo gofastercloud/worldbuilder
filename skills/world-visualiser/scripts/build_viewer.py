@@ -89,7 +89,11 @@ def main(argv=None):
     ap.add_argument("--json-only", action="store_true", help="write viz.json instead of the HTML page")
     ap.add_argument("--template", help="HTML template path (default: assets/viewer/index.html)")
     ap.add_argument(
-        "--embed-images", action="store_true", help="base64-encode entity images as data URIs for portability"
+        "--embed-images",
+        "--embed-media",
+        dest="embed_images",
+        action="store_true",
+        help="base64-encode discovered entity images and audio as data URIs for portability",
     )
     args = ap.parse_args(argv)
 

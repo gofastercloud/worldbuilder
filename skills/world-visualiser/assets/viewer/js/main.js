@@ -1,7 +1,7 @@
 // main.js: command-centre shell (header, command palette, telemetry HUD, tabs, filters, list, detail panel, footer).
 (function () {
   'use strict';
-  const { el, svg, safeImageSrc } = WB.util;
+  const { el, svg, safeImageSrc, safeAudioSrc } = WB.util;
   const D = WB.data;
   const app = document.getElementById('app');
   const hasThree = typeof window.THREE !== 'undefined';
@@ -59,12 +59,35 @@
   }
   themeBtn.addEventListener('click', cycleTheme);
 
+  let musicBtn = null;
+  if (WB.audio && WB.audio.hasMusic) {
+    musicBtn = el('button', {
+      type: 'button', class: 'btn wb-music-btn',
+      'aria-label': 'Toggle world soundtrack',
+      'aria-pressed': 'true',
+      text: '🔊 Music',
+    });
+    musicBtn.addEventListener('click', () => WB.audio.toggleMusic());
+  }
+  function syncAudioUi() {
+    if (musicBtn && WB.audio) {
+      const muted = WB.audio.isMuted();
+      const playing = WB.audio.isMusicPlaying();
+      musicBtn.textContent = muted ? '🔇 Muted' : (playing ? '🔊 Music' : '🔈 Music');
+      musicBtn.classList.toggle('playing', playing && !muted);
+      musicBtn.setAttribute('aria-pressed', String(!muted));
+    }
+    if (WB.state.selected) WB.detail.show(WB.state.selected);
+    renderList();
+  }
+
   const header = el('header', { class: 'top' },
     el('div', { class: 'brand-wrap' },
       el('span', { class: 'brand-orb', 'aria-hidden': 'true' }),
       el('h1', { text: (D.project && D.project.name) || 'World' })),
     search, eraSel, cmdBtn, hudBtn, listBtn,
     el('span', { class: 'header-spacer', 'aria-hidden': 'true' }),
+    musicBtn,
     themeBtn);
 
   const tablist = el('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Views' });
@@ -339,12 +362,26 @@
       .sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name));
     const cap = 400;
     stats.textContent = shown.length + ' of ' + D.nodes.length + ' entities match';
+    const speaking = WB.audio ? WB.audio.speakingId() : null;
     listBox.replaceChildren(...[
-      el('ul', {}, shown.slice(0, cap).map((n) => el('li', {}, el('button', {
-        type: 'button', class: 'link', 'aria-current': WB.state.selected === n.id ? 'true' : null,
-        onclick: () => WB.select(n.id),
-      }, el('span', { class: 'dot', style: 'background:' + (WB.colors.type[n.type] || '#888'), 'aria-hidden': 'true' }),
-      n.name, el('span', { class: 'muted', text: ' ' + (WB.typeGlyph[n.type] || '') }))))),
+      el('ul', {}, shown.slice(0, cap).map((n) => {
+        const hasVoice = !!safeAudioSrc(n.audio);
+        const isSpk = speaking === n.id;
+        return el('li', { class: hasVoice ? 'has-voice' : null },
+          el('button', {
+            type: 'button', class: 'link', 'aria-current': WB.state.selected === n.id ? 'true' : null,
+            onclick: () => WB.select(n.id),
+          }, el('span', { class: 'dot', style: 'background:' + (WB.colors.type[n.type] || '#888'), 'aria-hidden': 'true' }),
+          n.name, el('span', { class: 'muted', text: ' ' + (WB.typeGlyph[n.type] || '') })),
+          hasVoice ? el('button', {
+            type: 'button',
+            class: 'list-speak-btn' + (isSpk ? ' playing' : ''),
+            title: isSpk ? 'Stop speaking' : 'Hear ' + n.name + ' speak',
+            'aria-label': isSpk ? 'Stop ' + n.name + ' speaking' : 'Hear ' + n.name + ' speak',
+            onclick: (ev) => { ev.stopPropagation(); WB.audio.playVoice(n); },
+            text: isSpk ? '⏹' : '🔊',
+          }) : null);
+      })),
       shown.length > cap ? el('p', { class: 'muted', text: (shown.length - cap) + ' more; refine the search.' }) : null,
       shown.length === 0 ? el('p', { class: 'muted', text: 'Nothing matches the filters.' }) : null,
     ].filter(Boolean));
@@ -654,6 +691,7 @@
   cmdBtn.addEventListener('click', () => openCmdPalette(cmdBtn));
 
   // ---- bus wiring & global shortcuts
+  WB.bus.on('audio', syncAudioUi);
   WB.bus.on('select', (id) => {
     WB.views.forEach((v) => call(v, 'onSelect', id));
     renderList();
