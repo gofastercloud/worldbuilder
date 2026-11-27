@@ -178,6 +178,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center 15%;
   transition: transform 280ms ease;
 }
 .gal-card:hover .gal-thumb img { transform: scale(1.05); }
