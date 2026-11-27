@@ -1,0 +1,29 @@
+1
+00:00:01,681 --> 00:00:10,241
+Welcome to the Realm of Elderglen: eighty-eight
+causally linked entities across three ages of high
+fantasy.
+
+2
+00:00:10,543 --> 00:00:19,213
+Explore expansive procedural cartography with
+tectonic ridges, meandering rivers, and
+rain-shadow biomes.
+
+3
+00:00:19,515 --> 00:00:27,505
+Flip to Parchment mode for hand-drawn mountain
+chevrons, woodland clusters, and double coastline
+ripples.
+
+4
+00:00:27,808 --> 00:00:36,538
+Browse forty-nine painterly artworks and fifteen
+voiced characters generated via zero-key fal.ai
+OAuth.
+
+5
+00:00:38,840 --> 00:00:47,110
+Read generated short stories and D&D 5e campaigns
+right inside the viewer, with clickable entity
+links.

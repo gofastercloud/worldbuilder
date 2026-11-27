@@ -42,6 +42,12 @@
 
   // ---- Hero interactive video switcher
   const DEMOS = {
+    elderglen: {
+      src: 'assets/demos/demo-elderglen-showcase.mp4',
+      poster: 'assets/demos/demo-elderglen-showcase.png',
+      hasAudio: true,
+      caption: '<strong>🔊 Realm of Elderglen — Full Narrated Walkthrough</strong> — Unmute for voiceover + auto-ducked orchestral score across 3D causality, tectonic &amp; Parchment maps, 49 artworks, and the Content reader.',
+    },
     '3d': {
       src: 'assets/demos/demo-3d-universe.mp4',
       poster: 'assets/demos/demo-3d-universe.png',
