@@ -399,6 +399,9 @@ if (forests.length < 1) throw new Error('expected woodland clusters in parchment
 // Switch back to topographic: must hit cache
 (styleSel.listeners.change || []).forEach(function (fn) { fn({ target: { value: 'topographic' } }); });
 if (canvasBuilds !== 2) throw new Error('expected cache hit returning to topographic, got ' + canvasBuilds);
+
+// Single-world project must hide the World / Realm switcher
+if (findById(container, 'wbg-map-scope')) throw new Error('single-world project should not render wbg-map-scope');
 """,
         encoding="utf-8",
     )
@@ -406,6 +409,326 @@ if (canvasBuilds !== 2) throw new Error('expected cache hit returning to topogra
     map_src_path.write_text(map_js, encoding="utf-8")
     result = subprocess.run(["node", str(harness), str(map_src_path)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr + result.stdout
+
+
+def _write_multi_realm_world(root: Path) -> Path:
+    """Create a synthetic multi-realm fantasy world with cross-world portals and one per-scope backdrop."""
+    fixtures.write_world(root)
+    locs = root / "world" / "locations"
+    # Remove default single-world locations so only our two realms exist cleanly
+    for existing in locs.glob("*.md"):
+        existing.unlink()
+
+    (locs / "aetheria.md").write_text(
+        fixtures.md({
+            "name": "Aetheria",
+            "type": "realm",
+            "terrain": "sunlit highlands",
+            "climate_profile": {"zone": "temperate", "precipitation_mm": 900},
+        }),
+        encoding="utf-8",
+    )
+    (locs / "sunspire.md").write_text(
+        fixtures.md({
+            "name": "Sunspire",
+            "type": "city",
+            "parent": "aetheria",
+            "population": 120000,
+            "elevation_m": 850,
+            "routes": [
+                {"to": "dawnport", "methods": [{"mode": "road", "travel_time": "2 days"}]},
+                {"to": "gloomgate", "methods": [{"mode": "portal", "travel_time": "instant"}]},
+            ],
+        }),
+        encoding="utf-8",
+    )
+    (locs / "dawnport.md").write_text(
+        fixtures.md({
+            "name": "Dawnport",
+            "type": "city",
+            "parent": "aetheria",
+            "population": 65000,
+            "routes": [
+                {"to": "sunspire", "methods": [{"mode": "road", "travel_time": "2 days"}]},
+            ],
+        }),
+        encoding="utf-8",
+    )
+    (locs / "shadowfen.md").write_text(
+        fixtures.md({
+            "name": "Shadowfen",
+            "type": "realm",
+            "terrain": "misty marshlands",
+            "climate_profile": {"zone": "subarctic", "precipitation_mm": 1300},
+        }),
+        encoding="utf-8",
+    )
+    (locs / "gloomgate.md").write_text(
+        fixtures.md({
+            "name": "Gloomgate",
+            "type": "settlement",
+            "parent": "shadowfen",
+            "population": 18000,
+            "routes": [
+                {"to": "sunspire", "methods": [{"mode": "portal", "travel_time": "instant"}]},
+                {"to": "mirewatch", "methods": [{"mode": "boat", "travel_time": "1 day"}]},
+            ],
+        }),
+        encoding="utf-8",
+    )
+    (locs / "mirewatch.md").write_text(
+        fixtures.md({
+            "name": "Mirewatch",
+            "type": "landmark",
+            "parent": "shadowfen",
+            "elevation_m": 20,
+            "routes": [
+                {"to": "gloomgate", "methods": [{"mode": "boat", "travel_time": "1 day"}]},
+            ],
+        }),
+        encoding="utf-8",
+    )
+    # Give Aetheria a per-scope painted backdrop; Shadowfen has none
+    maps_dir = root / "output" / "images" / "maps"
+    maps_dir.mkdir(parents=True, exist_ok=True)
+    (maps_dir / "aetheria.png").write_bytes(b"\x89PNG\r\n\x1a\naetheria-map")
+    return root
+
+
+def test_multi_world_viewer_builds_for_example_and_fantasy_realms(tmp_path):
+    # 1. example-the-lattice has multiple planet scopes
+    ex_data = bv.viz_data.build_viz_data(EXAMPLE)
+    assert len(ex_data["map"]["scopes"]) >= 2
+    ex_html = _build(EXAMPLE, tmp_path / "ex")
+    _check_single_file(ex_html)
+    for token in (
+        "wbg-map-scope",
+        "Overview (All Worlds)",
+        "View Surface Map",
+        "wbm-world-node",
+        "wbm-cross-route",
+        "cross_world_routes",
+    ):
+        assert token in ex_html, f"expected {token!r} in example-the-lattice viewer"
+
+    # 2. Synthetic multi-realm fantasy world with cross-world portal + per-scope backdrop
+    proj = _write_multi_realm_world(tmp_path / "fantasy")
+    data = bv.viz_data.build_viz_data(proj)
+    scopes = {s["id"]: s for s in data["map"]["scopes"]}
+    assert set(scopes) == {"aetheria", "shadowfen"}
+    assert scopes["aetheria"]["backdrop"] == "images/maps/aetheria.png"
+    assert scopes["shadowfen"]["backdrop"] is None
+    assert len(data["map"]["cross_world_routes"]) == 1
+    assert data["map"]["cross_world_routes"][0]["cross_world"] is True
+
+    html = _build(proj, tmp_path / "fantasy_out")
+    _check_single_file(html)
+    assert "Aetheria" in html and "Shadowfen" in html
+    assert "images/maps/aetheria.png" in html
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_multi_world_map_switcher_overview_and_per_scope_backdrop(tmp_path):
+    """Execute map.js in Node with a multi-realm world to verify switcher, overview, drill-down and backdrops."""
+    import json
+
+    proj = _write_multi_realm_world(tmp_path / "fantasy")
+    data = bv.viz_data.build_viz_data(proj)
+    data_path = tmp_path / "viz.json"
+    data_path.write_text(json.dumps(data), encoding="utf-8")
+
+    map_js = (VIEWER / "js" / "views" / "map.js").read_text(encoding="utf-8")
+    map_src_path = tmp_path / "map_copy.js"
+    map_src_path.write_text(map_js, encoding="utf-8")
+
+    harness = tmp_path / "run_multi_map.js"
+    harness.write_text(
+        """
+const fs = require('fs');
+const vizData = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
+let canvasBuilds = 0;
+
+function mkEl(tag, ns) {
+  const el = {
+    tagName: tag,
+    ns: ns || null,
+    attrs: {},
+    children: [],
+    listeners: {},
+    style: { setProperty: function () {} },
+    classList: {
+      _set: new Set(),
+      add: function () { for (const c of arguments) this._set.add(c); },
+      remove: function () { for (const c of arguments) this._set.delete(c); },
+      toggle: function (c, on) { if (on) this._set.add(c); else this._set.delete(c); },
+    },
+    setAttribute: function (k, v) { this.attrs[k] = String(v); },
+    getAttribute: function (k) { return this.attrs[k]; },
+    appendChild: function (c) { this.children.push(c); return c; },
+    removeChild: function (c) {
+      const i = this.children.indexOf(c);
+      if (i >= 0) this.children.splice(i, 1);
+      return c;
+    },
+    addEventListener: function (ev, fn) {
+      (this.listeners[ev] = this.listeners[ev] || []).push(fn);
+    },
+    getBoundingClientRect: function () { return { width: 800, height: 800, left: 0, top: 0 }; },
+    focus: function () {},
+    get firstChild() { return this.children[0] || null; },
+  };
+  if (tag === 'canvas') {
+    el.getContext = function () {
+      canvasBuilds += 1;
+      return {
+        createImageData: function (w, h) {
+          return { width: w, height: h, data: new Uint8ClampedArray(w * h * 4) };
+        },
+        putImageData: function () {},
+      };
+    };
+    el.toDataURL = function () { return 'data:image/png;base64,MOCK_' + canvasBuilds; };
+  }
+  return el;
+}
+
+function collectByClass(node, cls, out) {
+  out = out || [];
+  if (!node || typeof node !== 'object') return out;
+  const c = (node.attrs && node.attrs.class) || '';
+  if (c.split(/\\s+/).indexOf(cls) >= 0) out.push(node);
+  (node.children || []).forEach(function (ch) { collectByClass(ch, cls, out); });
+  return out;
+}
+
+function collectByTag(node, tag, out) {
+  out = out || [];
+  if (!node || typeof node !== 'object') return out;
+  if (node.tagName === tag) out.push(node);
+  (node.children || []).forEach(function (ch) { collectByTag(ch, tag, out); });
+  return out;
+}
+
+function findById(node, id) {
+  if (!node || typeof node !== 'object') return null;
+  if (node.attrs && node.attrs.id === id) return node;
+  for (const ch of (node.children || [])) {
+    const hit = findById(ch, id);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+global.window = { matchMedia: function () { return { matches: false }; } };
+global.document = {
+  head: mkEl('head'),
+  body: mkEl('body'),
+  getElementById: function () { return null; },
+  createElement: function (t) { return mkEl(t); },
+  createElementNS: function (ns, t) { return mkEl(t, ns); },
+  createTextNode: function (s) { return { text: String(s) }; },
+};
+
+let view = null;
+global.WB = {
+  data: vizData,
+  state: { filters: {}, selected: null },
+  colors: { type: {}, zone: function () { return '#5ec962'; } },
+  bus: { on: function () {}, emit: function () {} },
+  select: function (id) { global.WB.state.selected = id; if (view && view.onSelect) view.onSelect(); },
+  registerView: function (v) { view = v; },
+};
+
+eval(fs.readFileSync(process.argv[2], 'utf8'));
+if (!view) throw new Error('map view did not register');
+
+const container = mkEl('div');
+view.create(container, global.WB);
+
+// 1. World / Realm switcher renders with Overview + each scope name
+const scopeSel = findById(container, 'wbg-map-scope');
+if (!scopeSel) throw new Error('missing wbg-map-scope selector for multi-world project');
+const optVals = scopeSel.children.map(function (o) { return o.attrs.value; });
+const optTexts = scopeSel.children.map(function (o) { return o.textContent; });
+if (optVals[0] !== 'overview' || optTexts[0] !== 'Overview (All Worlds)') {
+  throw new Error('unexpected overview option: ' + JSON.stringify({ optVals, optTexts }));
+}
+if (optVals.indexOf('aetheria') < 0 || optVals.indexOf('shadowfen') < 0) {
+  throw new Error('missing scope options: ' + JSON.stringify(optVals));
+}
+if (optTexts.indexOf('Aetheria') < 0 || optTexts.indexOf('Shadowfen') < 0) {
+  throw new Error('missing scope labels: ' + JSON.stringify(optTexts));
+}
+
+// 2. Overview mode renders world nodes + cross-world portal arc (no surface canvas yet)
+if (canvasBuilds !== 0) throw new Error('overview should not build surface terrain canvas, got ' + canvasBuilds);
+const worldNodes = collectByClass(container, 'wbm-world-node');
+if (worldNodes.length !== 2) throw new Error('expected 2 world nodes in overview, got ' + worldNodes.length);
+const crossRoutes = collectByClass(container, 'wbm-cross-route');
+if (crossRoutes.length !== 1) throw new Error('expected 1 cross-world route arc, got ' + crossRoutes.length);
+
+// 3. Click Aetheria world node -> side card shows 'View Surface Map' button; clicking it drills in
+const aetheriaNode = worldNodes.find(function (n) { return n.attrs['data-id'] === 'aetheria'; });
+if (!aetheriaNode) throw new Error('missing aetheria world node');
+(aetheriaNode.listeners.click || []).forEach(function (fn) { fn({ shiftKey: false }); });
+const drillBtns = collectByClass(container, 'wbm-drill-btn');
+if (drillBtns.length !== 1 || drillBtns[0].textContent !== 'View Surface Map') {
+  throw new Error('expected View Surface Map button in side card');
+}
+(drillBtns[0].listeners.click || []).forEach(function (fn) { fn({}); });
+
+// Now inside Aetheria surface map: has Painted Map backdrop option & only Aetheria locations
+const styleSel = findById(container, 'wbg-map-style');
+const aetheriaStyles = styleSel.children.map(function (o) { return o.attrs.value; });
+if (aetheriaStyles.indexOf('painted') < 0) {
+  throw new Error('expected Painted Map option for aetheria, got ' + JSON.stringify(aetheriaStyles));
+}
+const imgs = collectByTag(container, 'image');
+if (!imgs.some(function (im) { return im.attrs.href === 'images/maps/aetheria.png'; })) {
+  throw new Error('expected aetheria backdrop image to be rendered');
+}
+const aetheriaMarkers = collectByClass(container, 'wbg-node').map(function (n) { return n.attrs['data-id']; });
+if (aetheriaMarkers.indexOf('sunspire') < 0 || aetheriaMarkers.indexOf('gloomgate') >= 0) {
+  throw new Error('unexpected markers in aetheria scope: ' + JSON.stringify(aetheriaMarkers));
+}
+
+// Switch Aetheria to topographic -> builds 1st procedural terrain canvas
+(styleSel.listeners.change || []).forEach(function (fn) { fn({ target: { value: 'topographic' } }); });
+if (canvasBuilds !== 1) throw new Error('expected 1st procedural canvas for aetheria, got ' + canvasBuilds);
+
+// 4. Switch to Shadowfen via switcher -> no Painted Map option, builds 2nd procedural terrain canvas
+(scopeSel.listeners.change || []).forEach(function (fn) { fn({ target: { value: 'shadowfen' } }); });
+const shadowStyles = styleSel.children.map(function (o) { return o.attrs.value; });
+if (shadowStyles.indexOf('painted') >= 0) {
+  throw new Error('shadowfen has no backdrop; Painted Map option should not appear');
+}
+if (canvasBuilds !== 2) throw new Error('expected 2nd procedural canvas for shadowfen, got ' + canvasBuilds);
+const shadowMarkers = collectByClass(container, 'wbg-node').map(function (n) { return n.attrs['data-id']; });
+if (shadowMarkers.indexOf('gloomgate') < 0 || shadowMarkers.indexOf('sunspire') >= 0) {
+  throw new Error('unexpected markers in shadowfen scope: ' + JSON.stringify(shadowMarkers));
+}
+
+// 5. Return to Overview and double-click Shadowfen node -> drills straight into Shadowfen (and hits terrain cache)
+(scopeSel.listeners.change || []).forEach(function (fn) { fn({ target: { value: 'overview' } }); });
+const ovNodes = collectByClass(container, 'wbm-world-node');
+const shadowNode = ovNodes.find(function (n) { return n.attrs['data-id'] === 'shadowfen'; });
+if (!shadowNode) throw new Error('missing shadowfen world node in overview');
+(shadowNode.listeners.dblclick || []).forEach(function (fn) { fn({}); });
+if (canvasBuilds !== 2) throw new Error('expected terrain cache hit returning to shadowfen, got ' + canvasBuilds);
+const afterDblMarkers = collectByClass(container, 'wbg-node').map(function (n) { return n.attrs['data-id']; });
+if (afterDblMarkers.indexOf('gloomgate') < 0 || afterDblMarkers.indexOf('sunspire') >= 0) {
+  throw new Error('double-click did not drill into shadowfen: ' + JSON.stringify(afterDblMarkers));
+}
+""",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        ["node", str(harness), str(map_src_path), str(data_path)],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr + result.stdout
+
 
 
 

@@ -35,19 +35,102 @@
   }
   function prep(WB) {
     const D = WB.data || {}, M = D.map || {};
-    const locs = M.locations || [], routes = M.routes || [];
-    const L = {}, N = {}, adj = {};
-    locs.forEach(function (l) { L[l.id] = l; });
+    const allLocs = M.locations || [], allRoutes = M.routes || [];
+    const scopes = Array.isArray(M.scopes) ? M.scopes : [];
+    const crossRoutes = Array.isArray(M.cross_world_routes) ? M.cross_world_routes : [];
+    const multiWorld = scopes.length >= 2;
+    const allL = {}, N = {}, scopeById = {};
+    allLocs.forEach(function (l) { allL[l.id] = l; });
     (D.nodes || []).forEach(function (n) { N[n.id] = n; });
-    routes.forEach(function (r) {
-      (adj[r.from] = adj[r.from] || []).push({ to: r.to, r: r });
-      (adj[r.to] = adj[r.to] || []).push({ to: r.from, r: r });
+    scopes.forEach(function (sc) { scopeById[sc.id] = sc; });
+
+    const overviewLocs = scopes.map(function (sc, idx) {
+      const base = allL[sc.id] || {};
+      const angle = -Math.PI / 2 + (idx * 2 * Math.PI) / Math.max(1, scopes.length);
+      const x = base.x != null ? base.x : +(500 + 300 * Math.cos(angle)).toFixed(1);
+      const y = base.y != null ? base.y : +(500 + 300 * Math.sin(angle)).toFixed(1);
+      return Object.assign({}, base, {
+        id: sc.id,
+        name: sc.name || base.name || sc.id,
+        type: sc.type || base.type || 'world',
+        x: x,
+        y: y,
+        memberCount: (sc.locations || []).length,
+        routeCount: (sc.routes || []).length,
+        hasBackdrop: !!sc.backdrop,
+        _isScope: true,
+      });
     });
-    const types = Array.from(new Set(locs.map(function (l) { return l.type || 'place'; }))).sort();
-    return {
-      D: D, locs: locs, routes: routes, L: L, N: N, adj: adj, types: types,
-      name: function (id) { return (L[id] && L[id].name) || (N[id] && N[id].name) || String(id); },
+
+    const allTypeSet = new Set(allLocs.map(function (l) { return l.type || 'place'; }));
+    scopes.forEach(function (sc) {
+      allTypeSet.add(sc.type || 'world');
+      (sc.locations || []).forEach(function (l) { allTypeSet.add(l.type || 'place'); });
+    });
+    const allTypes = Array.from(allTypeSet).sort();
+
+    const g = {
+      D: D,
+      allLocs: allLocs,
+      allRoutes: allRoutes,
+      allL: allL,
+      N: N,
+      scopes: scopes,
+      scopeById: scopeById,
+      crossRoutes: crossRoutes,
+      overviewLocs: overviewLocs,
+      multiWorld: multiWorld,
+      allTypes: allTypes,
+      locs: allLocs,
+      routes: allRoutes,
+      L: {},
+      adj: {},
+      types: allTypes,
+      backdrop: M.backdrop || null,
+      name: function (id) {
+        return (g.L[id] && g.L[id].name) || (allL[id] && allL[id].name) || (scopeById[id] && scopeById[id].name) || (N[id] && N[id].name) || String(id);
+      },
+      applyScope: function (scopeId) {
+        let locs, routes, backdrop;
+        const adj = {}, L = {};
+        if (!multiWorld) {
+          locs = allLocs;
+          routes = allRoutes;
+          backdrop = M.backdrop || null;
+          routes.forEach(function (r) {
+            (adj[r.from] = adj[r.from] || []).push({ to: r.to, r: r });
+            (adj[r.to] = adj[r.to] || []).push({ to: r.from, r: r });
+          });
+        } else if (scopeId === 'overview') {
+          locs = overviewLocs;
+          routes = crossRoutes;
+          backdrop = null;
+          crossRoutes.forEach(function (r) {
+            if (!r.from_scope || !r.to_scope) return;
+            (adj[r.from_scope] = adj[r.from_scope] || []).push({ to: r.to_scope, r: r });
+            (adj[r.to_scope] = adj[r.to_scope] || []).push({ to: r.from_scope, r: r });
+          });
+        } else {
+          const sc = scopeById[scopeId];
+          locs = sc ? (sc.locations || []) : allLocs;
+          routes = sc ? (sc.routes || []) : allRoutes;
+          backdrop = sc ? (sc.backdrop || null) : null;
+          routes.forEach(function (r) {
+            (adj[r.from] = adj[r.from] || []).push({ to: r.to, r: r });
+            (adj[r.to] = adj[r.to] || []).push({ to: r.from, r: r });
+          });
+        }
+        locs.forEach(function (l) { L[l.id] = l; });
+        g.locs = locs;
+        g.routes = routes;
+        g.L = L;
+        g.adj = adj;
+        g.backdrop = backdrop;
+        g.types = Array.from(new Set(locs.map(function (l) { return l.type || 'place'; }))).sort();
+      },
     };
+    g.applyScope(multiWorld ? 'overview' : null);
+    return g;
   }
   function passes(WB, l) {
     const f = (WB.state && WB.state.filters) || {};
@@ -195,6 +278,9 @@
     '.wbm-region-title{font-family:Georgia,"Times New Roman",serif;font-weight:700;letter-spacing:.26em;text-transform:uppercase;pointer-events:none;paint-order:stroke;stroke-linejoin:round}' +
     '.wbm-scale-bar{pointer-events:none}.wbm-scale-txt{font-size:9.5px;font-weight:600;font-variant-numeric:tabular-nums;pointer-events:none}' +
     '.wbm-route-line{transition:opacity 160ms ease,stroke-width 160ms ease}.wbm-sea-lane{stroke-dasharray:7 5}.wbm-route-dim{opacity:.12 !important}.wbm-route-lit{stroke-opacity:1 !important;filter:url(#wbm-glow)}' +
+    '.wbm-cross-route{stroke-dasharray:8 5;stroke-linecap:round;filter:url(#wbm-glow)}.wbm-cross-route-glow{fill:none;stroke-linecap:round;pointer-events:none;filter:url(#wbm-glow)}' +
+    '.wbm-world-node .wbm-world-ring{fill:none;stroke-dasharray:4 4;pointer-events:none}.wbm-world-sub{fill:var(--muted,currentColor);font-size:calc(var(--wbg-fs,12px)*.78);font-weight:500;paint-order:stroke;stroke:var(--bg,Canvas);stroke-width:3px;stroke-linejoin:round;pointer-events:none}' +
+    '.wbm-drill-btn{background:var(--accent-soft,rgba(0,114,178,.18));border-color:var(--accent,Highlight);font-weight:600}' +
     '.wbm-route-badge-bg{fill:var(--panel);fill-opacity:.9;stroke:var(--accent);stroke-width:1}.wbm-route-badge-txt{fill:var(--fg);font-size:calc(var(--wbg-fs,12px)*.82);font-weight:600;pointer-events:none}' +
     '@media(prefers-reduced-motion:reduce){.wbm-pulse{display:none}}';
 
@@ -252,6 +338,7 @@
   }
 
   const st = {
+    scope: null,
     mode: 'type', sizeBy: 'population', style: 'topographic', halos: true, rivers: true, pulses: true, labels: true,
     res: '', a: null, b: null, route: null, hoverId: null, focusId: null,
     active: false, dirty: true, raf: 0, reduced: false,
@@ -259,6 +346,16 @@
   let W, G, root, stage, svg, pz, ui = {}, layers = {}, markers = {}, routeEls = [], pulses = [], modeCol = {}, shapes = {}, typeCol = {};
   const terrainCache = {};
   const terrainFieldCache = {};
+
+  function isOverview() { return !!(G && G.multiWorld && st.scope === 'overview'); }
+  function activeBackdrop() { return G ? G.backdrop : null; }
+  function crossRouteColor(r) {
+    const modeStr = (r.modes || []).map(function (m) { return m.mode || ''; }).join(' ');
+    if (/\b(portal|rift|gate|planar|magic|ley|dream|astral|veil)\b/i.test(modeStr)) return '#a855f7';
+    if (/\b(warp|lattice|hyper|jump|starship|ftl|wormhole|slip|shuttle|drive)\b/i.test(modeStr)) return '#38bdf8';
+    if (/\b(sea|ship|sail|ocean|maritime|ferry)\b/i.test(modeStr)) return '#2dd4bf';
+    return '#c084fc';
+  }
 
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
   function hashSeed(str) {
@@ -352,7 +449,7 @@
     return [102, 146, 92]; // temperate grassland / mixed forest
   }
   function terrainScopeKey() {
-    const parts = [(G.D.project && G.D.project.name) || 'world'];
+    const parts = [(G.D.project && G.D.project.name) || 'world', st.scope || 'root'];
     G.locs.forEach(function (l) {
       const z = (l.climate && l.climate.zone) || '';
       const p = (l.climate && l.climate.precipitation_mm != null) ? l.climate.precipitation_mm : '';
@@ -375,7 +472,8 @@
     const scopeKey = terrainScopeKey();
     if (terrainFieldCache[scopeKey]) return terrainFieldCache[scopeKey];
     const size = 420;
-    const seed = hashSeed((G.D.project && G.D.project.name) || 'world');
+    const seedStr = ((G.D.project && G.D.project.name) || 'world') + (st.scope ? ':' + st.scope : '');
+    const seed = hashSeed(seedStr);
     const highlands = G.locs.filter(isHighlandLoc);
     const seeds = G.locs.map(function (l) {
       const marine = isMarineLoc(l);
@@ -889,7 +987,7 @@
     if (st.style === 'schematic') return null;
     let href = null, tf = null;
     if (st.style === 'painted') {
-      const raw = G.D.map && G.D.map.backdrop;
+      const raw = activeBackdrop();
       href = W.util && W.util.safeImageSrc ? W.util.safeImageSrc(raw) : raw;
     } else {
       tf = computeTerrainField();
@@ -998,7 +1096,9 @@
       markers[id].classList.toggle('wbg-dim', !nbrs.has(id));
     });
     routeEls.forEach(function (re) {
-      const hit = re.r.from === hid || re.r.to === hid;
+      const fromId = re.fromId || re.r.from;
+      const toId = re.toId || re.r.to;
+      const hit = fromId === hid || toId === hid;
       re.el.classList.toggle('wbm-route-dim', !hit);
       re.el.classList.toggle('wbm-route-lit', hit);
       if (hit) {
@@ -1014,19 +1114,24 @@
 
   function showTip(l, ev) {
     if (!l || !ui.tip) return;
-    const z = l.climate && l.climate.zone ? l.climate.zone : null;
     const adj = G.adj[l.id] || [];
     const subParts = [l.type || 'location'];
-    if (l.population_label || l.population != null) subParts.push('Pop ' + (l.population_label || fmtN(l.population)));
-    if (l.elevation_m != null) subParts.push(fmtN(l.elevation_m) + ' m');
-    if (z) subParts.push(z);
+    if (l._isScope) {
+      subParts.push(l.memberCount + ' location' + (l.memberCount === 1 ? '' : 's'));
+      if (l.routeCount) subParts.push(l.routeCount + ' surface route' + (l.routeCount === 1 ? '' : 's'));
+    } else {
+      const z = l.climate && l.climate.zone ? l.climate.zone : null;
+      if (l.population_label || l.population != null) subParts.push('Pop ' + (l.population_label || fmtN(l.population)));
+      if (l.elevation_m != null) subParts.push(fmtN(l.elevation_m) + ' m');
+      if (z) subParts.push(z);
+    }
     const routeSummary = adj.length
-      ? adj.length + ' connected route' + (adj.length === 1 ? '' : 's') + ': ' + adj.slice(0, 3).map(function (x) { return G.name(x.to); }).join(', ') + (adj.length > 3 ? '…' : '')
-      : 'No direct travel routes';
+      ? adj.length + (l._isScope ? ' cross-world route' : ' connected route') + (adj.length === 1 ? '' : 's') + ': ' + adj.slice(0, 3).map(function (x) { return G.name(x.to); }).join(', ') + (adj.length > 3 ? '…' : '')
+      : (l._isScope ? 'Double-click to open surface map' : 'No direct travel routes');
     clear(ui.tip);
     ui.tip.appendChild(h('div', { class: 'wbm-tip-title', text: l.name }));
     ui.tip.appendChild(h('div', { class: 'wbm-tip-sub', text: subParts.join(' · ') }));
-    ui.tip.appendChild(h('div', { class: 'wbm-tip-routes', text: routeSummary }));
+    ui.tip.appendChild(h('div', { class: 'wbm-tip-routes', text: l._isScope && adj.length ? routeSummary + ' · Double-click to open surface map' : routeSummary }));
     ui.tip.hidden = false;
     const sr = stage.getBoundingClientRect();
     let left = ev.clientX - sr.left + 16;
@@ -1038,14 +1143,151 @@
     ui.tip.style.top = top + 'px';
   }
 
+  function drawOverviewBackdrop() {
+    clear(layers.terrain);
+    layers.defs.appendChild(h('svg:radialGradient', { id: 'wbm-ov-bg', cx: '50%', cy: '50%', r: '62%' },
+      h('svg:stop', { offset: '0%', 'stop-color': '#18243d' }),
+      h('svg:stop', { offset: '55%', 'stop-color': '#0e1628' }),
+      h('svg:stop', { offset: '100%', 'stop-color': '#070b14' })));
+    const bg = h('svg:g', { class: 'wbm-overview-bg', 'pointer-events': 'none' },
+      h('svg:rect', { x: 0, y: 0, width: 1000, height: 1000, fill: 'url(#wbm-ov-bg)' }));
+    [150, 280, 410].forEach(function (rr) {
+      bg.appendChild(h('svg:circle', {
+        cx: 500, cy: 500, r: rr, fill: 'none',
+        stroke: '#94a3b8', 'stroke-opacity': 0.14, 'stroke-width': 1, 'stroke-dasharray': '4 8',
+      }));
+    });
+    const seed = hashSeed(((G.D.project && G.D.project.name) || 'world') + ':overview');
+    for (let i = 0; i < 90; i++) {
+      const sx = ((hashSeed(seed + ':x:' + i) % 980) + 10);
+      const sy = ((hashSeed(seed + ':y:' + i) % 980) + 10);
+      const sr = 0.7 + (hashSeed(seed + ':r:' + i) % 14) * 0.12;
+      const op = 0.18 + (hashSeed(seed + ':o:' + i) % 50) * 0.01;
+      bg.appendChild(h('svg:circle', { cx: sx, cy: sy, r: sr.toFixed(1), fill: '#e2e8f0', 'fill-opacity': op.toFixed(2) }));
+    }
+    layers.terrain.appendChild(bg);
+  }
+
+  function renderOverview() {
+    clear(layers.defs);
+    layers.defs.appendChild(h('svg:filter', { id: 'wbm-glow', x: '-30%', y: '-30%', width: '160%', height: '160%' },
+      h('svg:feGaussianBlur', { stdDeviation: 3, result: 'b' }),
+      h('svg:feMerge', null, h('svg:feMergeNode', { in: 'b' }), h('svg:feMergeNode', { in: 'SourceGraphic' }))));
+    drawOverviewBackdrop();
+
+    const vis = {};
+    G.locs.forEach(function (l) { if (passes(W, l)) vis[l.id] = l; });
+    const sel = W.state && W.state.selected;
+
+    // Cross-world portal / warp-lane arcs
+    const pairCount = {};
+    G.routes.forEach(function (r) {
+      const a = vis[r.from_scope], b = vis[r.to_scope];
+      if (!a || !b) return;
+      const pKey = r.from_scope < r.to_scope ? r.from_scope + '|' + r.to_scope : r.to_scope + '|' + r.from_scope;
+      const idx = pairCount[pKey] || 0;
+      pairCount[pKey] = idx + 1;
+      const modes = (r.modes && r.modes.length) ? r.modes : [{ mode: 'portal' }];
+      const col = crossRouteColor(r);
+      const w = 2.2 + Math.min((r.goods || []).length, 5) * 0.6;
+      modes.forEach(function (m, i) {
+        const bend = 0.16 + (idx * 0.09) + (i - (modes.length - 1) / 2) * 0.1;
+        const c = curve(a, b, bend);
+        layers.route.appendChild(h('svg:path', {
+          class: 'wbm-cross-route-glow', d: c.d, stroke: col, 'stroke-width': w + 6, 'stroke-opacity': 0.24,
+        }));
+        const line = h('svg:path', {
+          class: 'wbm-route-line wbm-cross-route', d: c.d, fill: 'none', stroke: col,
+          'stroke-width': w, 'stroke-opacity': 0.92, 'stroke-dasharray': '8 5',
+        });
+        layers.route.appendChild(line);
+        routeEls.push({ el: line, r: r, m: m, c: c, fromId: r.from_scope, toId: r.to_scope });
+        layers.route.appendChild(h('svg:path', {
+          d: c.d, fill: 'none', stroke: 'transparent', 'stroke-width': Math.max(w, 16),
+          style: 'cursor:pointer', onclick: function () { if (!pz.wasDrag()) showRoute(r); },
+        }, h('svg:title', {
+          text: G.name(r.from_scope) + ' (' + G.name(r.from) + ') ↔ ' + G.name(r.to_scope) + ' (' + G.name(r.to) + '): ' +
+            modes.map(function (x) { return x.mode + (x.time ? ' (' + x.time + ')' : ''); }).join(', '),
+        })));
+        if (st.pulses && !st.reduced) {
+          for (let k = 0; k < 2; k++) {
+            const dot = h('svg:circle', {
+              class: 'wbm-pulse', r: 3.4, fill: '#ffffff', stroke: col,
+              'stroke-width': 2, filter: 'url(#wbm-glow)', 'pointer-events': 'none', 'aria-hidden': 'true',
+            });
+            layers.pulse.appendChild(dot);
+            pulses.push({ el: dot, c: c, t: (k * 0.5 + idx * 0.19) % 1, speed: 0.0026 + (k % 2) * 0.0005 });
+          }
+        }
+      });
+    });
+
+    // Top-level world / realm / planet / system nodes
+    Object.keys(vis).map(function (k) { return vis[k]; }).forEach(function (l) {
+      const r = 22 + Math.min(14, Math.sqrt(l.memberCount || 1) * 4);
+      const isSel = l.id === sel;
+      const col = typeColor(l.type || 'world');
+      const g = h('svg:g', {
+        class: 'wbg-node wbm-world-node' + (isSel ? ' wbg-sel' : ''),
+        transform: 'translate(' + l.x + ',' + l.y + ')',
+        role: 'button', tabindex: -1,
+        'aria-label': l.name + ', ' + (l.type || 'world') + ', ' + l.memberCount + ' locations. Double-click to open surface map.',
+        'aria-pressed': isSel ? 'true' : 'false',
+        'data-id': l.id,
+        'data-scope-id': l.id,
+      },
+        h('svg:title', { text: l.name + ' (' + (l.type || 'world') + ', ' + l.memberCount + ' locations) — Double-click to open surface map' }),
+        h('svg:circle', { class: 'wbm-world-ring', r: r + 10, stroke: col, 'stroke-width': 1.4, 'stroke-opacity': 0.55 }),
+        isSel ? h('svg:circle', { r: r + 15, fill: 'none', stroke: 'var(--focus)', 'stroke-width': 2.4, 'stroke-opacity': 0.85, filter: 'url(#wbm-glow)' }) : null,
+        h('svg:path', {
+          class: 'wbg-sh', d: shapeD(shapes[l.type || 'world'] || 'circle', r),
+          fill: col, 'fill-opacity': 0.92, filter: 'url(#wbm-glow)',
+        }),
+        st.labels ? h('svg:text', { class: 'wbg-lbl', 'text-anchor': 'middle', y: r + 20, text: l.name }) : null,
+        st.labels ? h('svg:text', { class: 'wbm-world-sub', 'text-anchor': 'middle', y: r + 34, text: (l.type || 'world') + ' · ' + l.memberCount + (l.memberCount === 1 ? ' place' : ' places') }) : null);
+
+      g.addEventListener('click', function () { if (pz.wasDrag()) return; activateNode(l.id, false); });
+      g.addEventListener('dblclick', function (ev) { if (ev && ev.preventDefault) ev.preventDefault(); setScope(l.id); });
+      g.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); activateNode(l.id, false); }
+        else if (ev.key.indexOf('Arrow') === 0) { ev.preventDefault(); nav(l, ev.key, vis); }
+      });
+      g.addEventListener('mouseenter', function (ev) { st.hoverId = l.id; applySpotlight(); showTip(l, ev); });
+      g.addEventListener('mousemove', function (ev) { if (st.hoverId === l.id) showTip(l, ev); });
+      g.addEventListener('mouseleave', function () { st.hoverId = null; applySpotlight(); if (ui.tip) ui.tip.hidden = true; });
+      g.addEventListener('focus', function () { st.focusId = l.id; st.hoverId = l.id; applySpotlight(); });
+      g.addEventListener('blur', function () { if (st.hoverId === l.id) { st.hoverId = null; applySpotlight(); } });
+      layers.node.appendChild(g);
+      markers[l.id] = g;
+    });
+
+    const ids = Object.keys(markers);
+    const tab = markers[sel] ? sel : st.focusId && markers[st.focusId] ? st.focusId : ids[0];
+    if (tab) markers[tab].setAttribute('tabindex', 0);
+    if (st.refocus && markers[st.refocus]) markers[st.refocus].focus();
+    st.refocus = null;
+
+    applySpotlight();
+    renderLegend(); renderRuler(null); renderCard(); renderSr(vis);
+    ui.empty.style.display = G.locs.length ? 'none' : '';
+    ui.count.textContent = G.locs.length && !ids.length
+      ? 'No worlds match the current filters.'
+      : ids.length + ' worlds · ' + G.routes.length + ' cross-world route' + (G.routes.length === 1 ? '' : 's');
+    startAnim();
+  }
+
   function render() {
     st.dirty = false;
     stopAnim();
     pulses = [];
     routeEls = [];
     Object.keys(layers).forEach(function (k) { if (k !== 'grid' && k !== 'terrain') clear(layers[k]); });
-    const tf = drawTerrain();
     markers = {};
+    if (isOverview()) {
+      renderOverview();
+      return;
+    }
+    const tf = drawTerrain();
 
     const vis = {};
     G.locs.forEach(function (l) { if (passes(W, l)) vis[l.id] = l; });
@@ -1225,13 +1467,28 @@
   }
   function activateNode(id, shift) {
     st.refocus = id;
-    if (shift) { rulerPick(id); return; }
+    if (shift && !isOverview()) { rulerPick(id); return; }
     st.route = null; WB.select(id);
   }
   function rulerPick(id) { if (!st.a || (st.a && st.b)) { st.a = id; st.b = null; } else if (id !== st.a) st.b = id; st.refocus = id; render(); }
 
   function renderLegend() {
     clear(ui.legend);
+    if (isOverview()) {
+      const types = G.types.map(function (t) {
+        const sw = h('svg:svg', { width: 16, height: 16, viewBox: '-12 -12 24 24', 'aria-hidden': 'true' },
+          h('svg:path', { d: shapeD(shapes[t] || 'circle', 7), fill: typeColor(t), stroke: 'currentColor' }));
+        return h('span', null, sw, t);
+      });
+      ui.legend.appendChild(h('div', null, h('h3', { text: 'World / realm scopes' }), h('div', { class: 'wbg-legend' }, types)));
+      ui.legend.appendChild(h('div', null, h('h3', { text: 'Cross-world connections' }), h('div', { class: 'wbg-legend' },
+        h('span', null, h('svg:svg', { width: 26, height: 8, 'aria-hidden': 'true' },
+          h('svg:line', { x1: 0, y1: 4, x2: 26, y2: 4, stroke: '#a855f7', 'stroke-width': 3, 'stroke-dasharray': '5 3', 'stroke-linecap': 'round' })), 'Portal / planar rift'),
+        h('span', null, h('svg:svg', { width: 26, height: 8, 'aria-hidden': 'true' },
+          h('svg:line', { x1: 0, y1: 4, x2: 26, y2: 4, stroke: '#38bdf8', 'stroke-width': 3, 'stroke-dasharray': '5 3', 'stroke-linecap': 'round' })), 'Warp / transit lane'),
+        h('span', { class: 'wbg-dim-t', text: 'Double-click any world node to open its surface map' }))));
+      return;
+    }
     const types = G.types.map(function (t) {
       const sw = h('svg:svg', { width: 16, height: 16, viewBox: '-12 -12 24 24', 'aria-hidden': 'true' },
         h('svg:path', { d: shapeD(shapes[t], 7), fill: st.mode === 'type' ? typeColor(t) : '#999', stroke: 'currentColor' }));
@@ -1273,22 +1530,56 @@
   }
   function renderCard() {
     clear(ui.card);
-    const l = G.L[W.state && W.state.selected];
     if (st.route) {
       const r = st.route;
+      const heading = r.cross_world
+        ? 'Cross-world route: ' + G.name(r.from) + ' (' + G.name(r.from_scope) + ') ↔ ' + G.name(r.to) + ' (' + G.name(r.to_scope) + ')'
+        : 'Route: ' + G.name(r.from) + ' ↔ ' + G.name(r.to);
       ui.card.appendChild(h('div', null,
-        h('h3', { text: 'Route: ' + G.name(r.from) + ' ↔ ' + G.name(r.to) }),
+        h('h3', { text: heading }),
         h('ul', { class: 'wbg-list' }, (r.modes || []).map(function (m) { return h('li', { text: m.mode + (m.distance ? ', ' + m.distance : '') + (m.time ? ', ' + m.time : '') }); })),
         h('p', { text: 'Goods: ' + ((r.goods || []).join(', ') || 'none recorded') }),
         r.reciprocal === false ? h('p', { class: 'wbg-flag warn', text: 'Declared on one side only (validator warning)' }) : null,
         h('button', { class: 'wbg-btn', type: 'button', onclick: function () { st.route = null; renderCard(); }, text: 'Close' })));
       return;
     }
+    const selId = W.state && W.state.selected;
+    if (isOverview()) {
+      const l = G.L[selId];
+      if (!l) {
+        ui.card.appendChild(h('div', null,
+          h('p', { class: 'wbg-dim-t', text: 'Hover any world to spotlight cross-world routes. Click a world to inspect it, or double-click to open its surface map.' }),
+          h('div', { style: 'margin-top:8px;display:flex;flex-wrap:wrap;gap:4px' },
+            G.scopes.map(function (sc) {
+              return h('button', { class: 'wbg-chip', type: 'button', onclick: function () { setScope(sc.id); }, text: sc.name });
+            }))));
+        return;
+      }
+      const xCount = (G.adj[l.id] || []).length;
+      const rows = [
+        ['Type', l.type || 'world'],
+        ['Locations', String(l.memberCount || 0)],
+        ['Surface routes', String(l.routeCount || 0)],
+        ['Cross-world routes', String(xCount)],
+        ['Terrain', l.terrain || 'not recorded'],
+        ['Population', l.population_label || (l.population != null ? fmtN(l.population) : 'not recorded')],
+      ];
+      const dl = h('dl', null, rows.map(function (r) { return [h('dt', { text: r[0] }), h('dd', null, r[1])]; }));
+      ui.card.appendChild(h('div', null,
+        h('h3', { text: l.name }), dl,
+        h('div', { style: 'margin-top:8px;display:flex;gap:6px;flex-wrap:wrap' },
+          h('button', {
+            class: 'wbg-btn wbm-drill-btn', type: 'button', 'data-scope': l.id,
+            onclick: function () { setScope(l.id); }, text: 'View Surface Map',
+          }))));
+      return;
+    }
+    const l = G.L[selId];
     if (!l) {
       ui.card.appendChild(h('p', { class: 'wbg-dim-t', text: G.locs.length ? 'Hover any location to spotlight its routes. Click to inspect, or Shift+click two locations for the travel ruler.' : '' }));
       return;
     }
-    const c = l.climate, parent = l.parent && G.L[l.parent];
+    const c = l.climate, parent = l.parent && (G.L[l.parent] || G.allL[l.parent]);
     const rows = [
       ['Type', l.type || 'place'],
       ['Parent', parent ? h('button', { class: 'wbg-chip', type: 'button', onclick: function () { WB.select(parent.id); }, text: parent.name }) : 'none (top level)'],
@@ -1315,6 +1606,7 @@
   function showRoute(r) { st.route = r; renderCard(); }
   function renderRuler(path) {
     clear(ui.ruler);
+    if (isOverview()) return;
     if (!st.a) { ui.ruler.appendChild(h('span', { class: 'wbg-dim-t', text: 'Ruler: Shift+click two locations' })); return; }
     const clr = h('button', { class: 'wbg-btn', type: 'button', onclick: function () { st.a = st.b = null; render(); }, text: 'Clear ruler' });
     if (!st.b) { ui.ruler.appendChild(h('span', null, 'Ruler from ' + G.name(st.a) + ' → pick end ', clr)); return; }
@@ -1324,6 +1616,22 @@
   }
   function renderSr(vis) {
     clear(ui.sr);
+    if (isOverview()) {
+      ui.sr.appendChild(h('table', null, h('caption', { text: 'Worlds and realms (text alternative to the overview map)' }),
+        h('thead', null, h('tr', null, ['Name', 'Type', 'Locations', 'Surface routes', 'Action'].map(function (t) { return h('th', { text: t }); }))),
+        h('tbody', null, Object.keys(vis).map(function (id) {
+          const l = vis[id];
+          return h('tr', null,
+            h('td', null, h('button', { type: 'button', tabindex: -1, onclick: function () { WB.select(id); }, text: l.name })),
+            h('td', { text: l.type || '' }), h('td', { text: String(l.memberCount || 0) }),
+            h('td', { text: String(l.routeCount || 0) }),
+            h('td', null, h('button', { type: 'button', tabindex: -1, onclick: function () { setScope(id); }, text: 'View Surface Map' })));
+        }))));
+      ui.sr.appendChild(h('ul', null, G.routes.map(function (r) {
+        return h('li', { text: 'Cross-world route ' + G.name(r.from_scope) + ' to ' + G.name(r.to_scope) + ': ' + (r.modes || []).map(function (m) { return m.mode + (m.time ? ' ' + m.time : ''); }).join(', ') });
+      })));
+      return;
+    }
     ui.sr.appendChild(h('table', null, h('caption', { text: 'Locations (text alternative to the map)' }),
       h('thead', null, h('tr', null, ['Name', 'Type', 'Parent', 'Population', 'Climate zone', 'Terrain'].map(function (t) { return h('th', { text: t }); }))),
       h('tbody', null, Object.keys(vis).map(function (id) {
@@ -1337,20 +1645,69 @@
       return h('li', { text: 'Route ' + G.name(r.from) + ' to ' + G.name(r.to) + ': ' + (r.modes || []).map(function (m) { return m.mode + (m.time ? ' ' + m.time : ''); }).join(', ') });
     })));
   }
-  function syncMode() { ui.resWrap.style.display = st.mode === 'res' ? '' : 'none'; }
+  function syncMode() { ui.resWrap.style.display = (!isOverview() && st.mode === 'res') ? '' : 'none'; }
+  function syncStyleOptions() {
+    if (!ui.styleSel) return;
+    const hasBackdrop = !!activeBackdrop();
+    if (!hasBackdrop && st.style === 'painted') st.style = 'topographic';
+    const opts = [];
+    if (hasBackdrop) opts.push(['painted', 'Painted Map']);
+    opts.push(['topographic', 'Topographic'], ['parchment', 'Parchment'], ['schematic', 'Schematic']);
+    clear(ui.styleSel);
+    opts.forEach(function (o) {
+      ui.styleSel.appendChild(h('option', { value: o[0], text: o[1], selected: o[0] === st.style ? true : null }));
+    });
+    ui.styleSel.value = st.style;
+  }
+  function syncToolbar() {
+    const ov = isOverview();
+    if (ui.styleWrap) ui.styleWrap.style.display = ov ? 'none' : '';
+    if (ui.modeWrap) ui.modeWrap.style.display = ov ? 'none' : '';
+    if (ui.sizeWrap) ui.sizeWrap.style.display = ov ? 'none' : '';
+    if (ui.riversBtn) ui.riversBtn.style.display = ov ? 'none' : '';
+    if (ui.halosBtn) ui.halosBtn.style.display = ov ? 'none' : '';
+    if (ui.ruler) ui.ruler.style.display = ov ? 'none' : '';
+    syncMode();
+  }
+  function setScope(scopeId) {
+    if (!G || !G.multiWorld) return;
+    const target = (scopeId === 'overview' || G.scopeById[scopeId]) ? scopeId : 'overview';
+    st.scope = target;
+    st.a = null;
+    st.b = null;
+    st.route = null;
+    st.hoverId = null;
+    G.applyScope(target);
+    if (ui.scopeSel) {
+      ui.scopeSel.value = target;
+      Array.prototype.forEach.call(ui.scopeSel.children || [], function (opt) {
+        if (opt.attrs && opt.attrs.value === target) opt.setAttribute('selected', '');
+        else if (opt.removeAttribute) opt.removeAttribute('selected');
+      });
+    }
+    if (!isOverview()) {
+      if (activeBackdrop()) st.style = 'painted';
+      else if (st.style === 'painted') st.style = 'topographic';
+    }
+    syncStyleOptions();
+    syncToolbar();
+    if (pz) pz.reset();
+    render();
+  }
 
   WB.registerView({
     id: 'map', title: 'Map', order: 30,
     create: function (container, wb) {
       W = wb || WB; G = prep(W); injectCss(); st.reduced = reducedMotion();
-      G.types.forEach(function (t, i) { typeCol[t] = PAL[i % PAL.length]; }); shapes = shapeMap(G.types);
-      const modes = {}; G.routes.forEach(function (r) { (r.modes || []).forEach(function (m) { modes[m.mode] = 1; }); });
+      st.scope = G.multiWorld ? 'overview' : null;
+      G.allTypes.forEach(function (t, i) { typeCol[t] = PAL[i % PAL.length]; }); shapes = shapeMap(G.allTypes);
+      const modes = {};
+      G.allRoutes.concat(G.crossRoutes).forEach(function (r) { (r.modes || []).forEach(function (m) { modes[m.mode] = 1; }); });
       Object.keys(modes).sort().forEach(function (m, i) { modeCol[m] = PAL[i % PAL.length]; });
       const resources = ((G.D.economy || {}).resources || []).map(function (r) { return r.name; }).sort();
       st.res = resources[0] || '';
 
-      const hasBackdrop = !!(G.D.map && G.D.map.backdrop);
-      st.style = hasBackdrop ? 'painted' : 'topographic';
+      st.style = activeBackdrop() ? 'painted' : 'topographic';
 
       ui.hudPct = h('span', { class: 'wbm-hud-pct', text: '100%' });
       svg = mkSvg('Interactive cartographic atlas of locations');
@@ -1364,11 +1721,18 @@
       });
       drawGrid();
 
-      const styleOpts = [];
-      if (hasBackdrop) styleOpts.push(['painted', 'Painted Map']);
-      styleOpts.push(['topographic', 'Topographic'], ['parchment', 'Parchment'], ['schematic', 'Schematic']);
-      const styleSel = h('select', { id: 'wbg-map-style', 'aria-label': 'Map terrain style', onchange: function (e) { st.style = e.target.value; render(); } },
-        styleOpts.map(function (o) { return h('option', { value: o[0], text: o[1], selected: o[0] === st.style ? true : null }); }));
+      if (G.multiWorld) {
+        const scopeOpts = [['overview', 'Overview (All Worlds)']].concat(G.scopes.map(function (sc) { return [sc.id, sc.name]; }));
+        ui.scopeSel = h('select', { id: 'wbg-map-scope', 'aria-label': 'World or Realm', onchange: function (e) { setScope(e.target.value); } },
+          scopeOpts.map(function (o) { return h('option', { value: o[0], text: o[1], selected: o[0] === st.scope ? true : null }); }));
+        ui.scopeWrap = h('label', null, 'World / Realm ', ui.scopeSel);
+      } else {
+        ui.scopeSel = null;
+        ui.scopeWrap = null;
+      }
+
+      ui.styleSel = h('select', { id: 'wbg-map-style', 'aria-label': 'Map terrain style', onchange: function (e) { st.style = e.target.value; render(); } });
+      syncStyleOptions();
       const modeSel = h('select', { id: 'wbg-map-mode', onchange: function (e) { st.mode = e.target.value; syncMode(); render(); } },
         [['type', 'Type'], ['zone', 'Climate zone'], ['res', 'Resource availability'], ['pop', 'Population']].map(function (o) { return h('option', { value: o[0], text: o[1] }); }));
       const sizeSel = h('select', { id: 'wbg-map-size', 'aria-label': 'Bubble sizing', onchange: function (e) { st.sizeBy = e.target.value; render(); } },
@@ -1383,9 +1747,11 @@
         });
         return b;
       };
+      ui.riversBtn = mkToggle('Rivers', 'rivers');
+      ui.halosBtn = mkToggle('Biome Halos', 'halos');
       const toggles = h('div', { class: 'wbm-toggles' },
-        mkToggle('Rivers', 'rivers'),
-        mkToggle('Biome Halos', 'halos'),
+        ui.riversBtn,
+        ui.halosBtn,
         mkToggle('Route Pulses', 'pulses'),
         mkToggle('Labels', 'labels'));
 
@@ -1395,6 +1761,9 @@
         h('button', { class: 'wbg-btn', type: 'button', 'aria-label': 'Zoom out', onclick: pz.zoomOut, text: '−' }),
         h('button', { class: 'wbg-btn', type: 'button', 'aria-label': 'Fit atlas to view', onclick: pz.reset, text: 'Fit' }));
 
+      ui.styleWrap = h('label', null, 'Terrain ', ui.styleSel);
+      ui.modeWrap = h('label', null, 'Colour ', modeSel);
+      ui.sizeWrap = h('label', null, 'Size ', sizeSel);
       ui.resWrap = h('label', null, 'Resource ', resSel);
       ui.count = h('span', { class: 'wbg-dim-t', role: 'status' });
       ui.ruler = h('span');
@@ -1407,14 +1776,15 @@
       stage = h('div', { class: 'wbg-stage' }, svg, hud, ui.tip, ui.empty);
       root = h('div', { class: 'wbg-view' },
         h('div', { class: 'wbg-bar' },
-          h('label', null, 'Terrain ', styleSel),
-          h('label', null, 'Colour ', modeSel),
-          h('label', null, 'Size ', sizeSel),
+          ui.scopeWrap,
+          ui.styleWrap,
+          ui.modeWrap,
+          ui.sizeWrap,
           ui.resWrap, toggles, ui.count, ui.ruler),
         h('div', { class: 'wbg-body' }, stage, h('div', { class: 'wbg-side' }, ui.card, ui.legend)),
         ui.sr);
       container.appendChild(root);
-      syncMode();
+      syncToolbar();
       if (W.bus) {
         W.bus.on('highlight', function (ids) {
           const s = ids ? new Set(ids) : null;
