@@ -17,6 +17,22 @@ Load `worldbuilding` first (conventions, magic gate, working procedure). Load `w
 
 Dialogue and voice for any mode: `references/dialogue-and-voice.md`. The context checklist for any mode: `references/context-assembly.md`.
 
+## Deterministic brief generator (`scripts/story_campaign.py`)
+
+Before drafting a short story or a D&D 5e campaign, run `scripts/story_campaign.py` to assemble a spoiler-free, dated world brief directly from the files (zero runtime dependencies):
+
+```bash
+# Short story anchored to an event, myth/tradition, era, or present day
+python3 scripts/story_campaign.py story <project> --event <slug>
+python3 scripts/story_campaign.py story <project> --tradition <slug>
+python3 scripts/story_campaign.py story <project> --era <prefix> --start-year <Y> [--end-year <Y2>]
+
+# D&D 5e-compatible campaign anchored to an era, event, tradition, or present day
+python3 scripts/story_campaign.py campaign <project> --era <prefix> --year <Y> --level 1-4 --length short --location <slug>
+```
+
+The script enforces the **spoiler firewall** (excluding events after the anchor date), filters living characters, extracts `world_flags.magic` rules (including 5e low/no-magic guidance when magic is off), traces causal ancestry (`why`), and builds faction clocks, economy hooks, and a d6/d8 rumour table from real traditions. Use `--json` for structured output or `--out <path>` to save the brief.
+
 ## Step 0: locate and anchor
 
 1. Find the project (folder with `project.yaml`). Read `project.yaml`: world flags, style block, tone, themes, calendar summary, present date.
