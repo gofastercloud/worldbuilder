@@ -204,6 +204,211 @@ def test_assembled_script_parses(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
+def test_tectonic_cartography_rivers_and_ornaments_in_single_file(tmp_path):
+    fixtures.write_world(tmp_path)
+    html = _build(tmp_path, tmp_path)
+    _check_single_file(html)
+    for token in (
+        "ridgedFbm",
+        "computeTerrainField",
+        "terrainFieldCache",
+        "drawRivers",
+        "flows_to",
+        "drawOrnaments",
+        "wbm-orn-mountain",
+        "wbm-orn-forest",
+        "wbm-scale-bar",
+        "wbm-region-title",
+        "wbm-river",
+        "wbm-sea-lane",
+    ):
+        assert token in html, f"expected {token!r} in assembled viewer"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_map_view_renders_tectonic_terrain_rivers_and_ornaments(tmp_path):
+    """Execute map.js in a minimal Node DOM/canvas mock for Topographic and Parchment modes."""
+    fixtures.write_world(tmp_path)
+    html = _build(tmp_path, tmp_path)
+    _check_single_file(html)
+
+    map_js = (VIEWER / "js" / "views" / "map.js").read_text(encoding="utf-8")
+    harness = tmp_path / "run_map.js"
+    harness.write_text(
+        """
+const fs = require('fs');
+let canvasBuilds = 0;
+
+function mkEl(tag, ns) {
+  const el = {
+    tagName: tag,
+    ns: ns || null,
+    attrs: {},
+    children: [],
+    listeners: {},
+    style: { setProperty: function () {} },
+    classList: {
+      _set: new Set(),
+      add: function () { for (const c of arguments) this._set.add(c); },
+      remove: function () { for (const c of arguments) this._set.delete(c); },
+      toggle: function (c, on) { if (on) this._set.add(c); else this._set.delete(c); },
+    },
+    setAttribute: function (k, v) { this.attrs[k] = String(v); },
+    getAttribute: function (k) { return this.attrs[k]; },
+    appendChild: function (c) { this.children.push(c); return c; },
+    removeChild: function (c) {
+      const i = this.children.indexOf(c);
+      if (i >= 0) this.children.splice(i, 1);
+      return c;
+    },
+    addEventListener: function (ev, fn) {
+      (this.listeners[ev] = this.listeners[ev] || []).push(fn);
+    },
+    getBoundingClientRect: function () { return { width: 800, height: 800, left: 0, top: 0 }; },
+    focus: function () {},
+    get firstChild() { return this.children[0] || null; },
+  };
+  if (tag === 'canvas') {
+    el.getContext = function () {
+      canvasBuilds += 1;
+      return {
+        createImageData: function (w, h) {
+          return { width: w, height: h, data: new Uint8ClampedArray(w * h * 4) };
+        },
+        putImageData: function () {},
+      };
+    };
+    el.toDataURL = function () { return 'data:image/png;base64,MOCK_' + canvasBuilds; };
+  }
+  return el;
+}
+
+function collectByClass(node, cls, out) {
+  out = out || [];
+  if (!node || typeof node !== 'object') return out;
+  const c = (node.attrs && node.attrs.class) || '';
+  if (c.split(/\\s+/).indexOf(cls) >= 0) out.push(node);
+  (node.children || []).forEach(function (ch) { collectByClass(ch, cls, out); });
+  return out;
+}
+
+function findById(node, id) {
+  if (!node || typeof node !== 'object') return null;
+  if (node.attrs && node.attrs.id === id) return node;
+  for (const ch of (node.children || [])) {
+    const hit = findById(ch, id);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+global.window = { matchMedia: function () { return { matches: false }; } };
+global.document = {
+  head: mkEl('head'),
+  body: mkEl('body'),
+  getElementById: function () { return null; },
+  createElement: function (t) { return mkEl(t); },
+  createElementNS: function (ns, t) { return mkEl(t, ns); },
+  createTextNode: function (s) { return { text: String(s) }; },
+};
+
+let view = null;
+global.WB = {
+  data: {
+    project: { name: 'Tectonic Test World' },
+    nodes: [],
+    map: {
+      locations: [
+        {
+          id: 'north-realm', name: 'North Realm', type: 'region', depth: 0,
+          children: ['high-peak', 'green-vale'], x: 320, y: 320, elevation_m: 350,
+          area_km2: 85000, climate: { zone: 'temperate', precipitation_mm: 980 },
+        },
+        {
+          id: 'high-peak', name: 'Ironspine Peak', type: 'landmark', parent: 'north-realm',
+          depth: 1, children: [], x: 260, y: 280, elevation_m: 3400,
+          terrain: 'alpine mountain ridge', climate: { zone: 'alpine', precipitation_mm: 1200 },
+          hydrology: { flows_to: 'green-vale' },
+        },
+        {
+          id: 'green-vale', name: 'Green Vale', type: 'settlement', parent: 'north-realm',
+          depth: 1, children: [], x: 460, y: 420, elevation_m: 180,
+          terrain: 'forested lowland', population: 42000,
+          climate: { zone: 'temperate', precipitation_mm: 1050 },
+          hydrology: { flows_to: 'harbour' },
+        },
+        {
+          id: 'dry-basin', name: 'Leeward Wastes', type: 'region', depth: 0, children: [],
+          x: 640, y: 360, elevation_m: 420, terrain: 'arid steppe',
+          climate: { zone: 'arid', precipitation_mm: 140 },
+        },
+        {
+          id: 'harbour', name: 'Shoal Harbour', type: 'city', depth: 0, children: [],
+          x: 780, y: 740, elevation_m: -15, terrain: 'coastal sea harbour',
+          population: 90000, climate: { zone: 'mediterranean' },
+        },
+      ],
+      routes: [
+        {
+          id: 'green-vale--harbour', from: 'green-vale', to: 'harbour',
+          modes: [{ mode: 'sea', time: '2 days' }], goods: ['grain'], reciprocal: true,
+        },
+      ],
+    },
+    climate: { zones: [], legend: {} },
+    economy: { resources: [] },
+  },
+  state: { filters: {}, selected: null },
+  colors: { type: {}, zone: function () { return '#5ec962'; } },
+  bus: { on: function () {}, emit: function () {} },
+  select: function () {},
+  registerView: function (v) { view = v; },
+};
+
+eval(fs.readFileSync(process.argv[2], 'utf8'));
+if (!view) throw new Error('map view did not register');
+
+const container = mkEl('div');
+view.create(container, global.WB);
+
+// Topographic mode renders rivers, sea-lanes, scale bar, region titles, and caches terrain
+if (canvasBuilds !== 1) throw new Error('expected 1 initial topographic canvas build, got ' + canvasBuilds);
+const topoRivers = collectByClass(container, 'wbm-river');
+if (topoRivers.length < 2) throw new Error('expected >=2 river paths, got ' + topoRivers.length);
+const seaLanes = collectByClass(container, 'wbm-sea-lane');
+if (seaLanes.length < 1) throw new Error('expected sea-lane class on sea route');
+const scaleBars = collectByClass(container, 'wbm-scale-bar');
+if (scaleBars.length !== 1) throw new Error('expected 1 scale bar, got ' + scaleBars.length);
+const regionTitles = collectByClass(container, 'wbm-region-title');
+if (regionTitles.length < 1) throw new Error('expected top-level region titles, got ' + regionTitles.length);
+
+// Re-render same style must hit cache (no extra canvas build)
+view.onFilter();
+if (canvasBuilds !== 1) throw new Error('expected terrain cache hit on re-render, got ' + canvasBuilds);
+
+// Switch to Parchment style: builds parchment canvas once and renders chevrons + woodland clusters
+const styleSel = findById(container, 'wbg-map-style');
+if (!styleSel) throw new Error('missing style select');
+(styleSel.listeners.change || []).forEach(function (fn) { fn({ target: { value: 'parchment' } }); });
+if (canvasBuilds !== 2) throw new Error('expected 2nd canvas build for parchment, got ' + canvasBuilds);
+const chevrons = collectByClass(container, 'wbm-orn-mountain');
+if (chevrons.length < 1) throw new Error('expected mountain chevrons in parchment mode, got ' + chevrons.length);
+const forests = collectByClass(container, 'wbm-orn-forest');
+if (forests.length < 1) throw new Error('expected woodland clusters in parchment mode, got ' + forests.length);
+
+// Switch back to topographic: must hit cache
+(styleSel.listeners.change || []).forEach(function (fn) { fn({ target: { value: 'topographic' } }); });
+if (canvasBuilds !== 2) throw new Error('expected cache hit returning to topographic, got ' + canvasBuilds);
+""",
+        encoding="utf-8",
+    )
+    map_src_path = tmp_path / "map_copy.js"
+    map_src_path.write_text(map_js, encoding="utf-8")
+    result = subprocess.run(["node", str(harness), str(map_src_path)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr + result.stdout
+
+
+
 def test_serve_mode_rebuilds_streams_range_and_blocks_non_local_host(tmp_path):
     import http.client
     import threading
