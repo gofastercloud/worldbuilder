@@ -830,3 +830,115 @@ def test_invalid_location_coordinates_emit_error(tmp_path, bad_coords):
     errs = find(run(root), "coordinates", "error")
     assert len(errs) == 1
     assert errs[0]["field"] == "coordinates"
+
+
+# ── multi-world per-scope world_flags overrides ──────────────────────────────
+
+
+def test_per_world_magic_flag_override_enables_magic_on_one_planet(tmp_path):
+    files = {
+        "world/locations/planet-a.md": fm(
+            name="Planet A",
+            type="planet",
+            world_flags={"magic": {"present": True, "hardness": "hard"}},
+        ),
+        "world/locations/city-a.md": fm(
+            name="City A",
+            type="city",
+            parent="planet-a",
+            routes=[{"to": "city-a", "method": "portal"}],
+        ),
+        "world/magic-systems/arcana.md": fm(
+            name="Arcana",
+            type="elemental",
+            world="planet-a",
+            source="ley lines",
+            practitioners="mages",
+            cost="fatigue",
+            limitations="line of sight",
+        ),
+        "world/characters/mage-a.md": fm(
+            name="Mage A",
+            status="alive",
+            location="city-a",
+            magic_system="arcana",
+            abilities=["casts a spell"],
+        ),
+        "world/locations/planet-b.md": fm(name="Planet B", type="planet"),
+        "world/locations/city-b.md": fm(
+            name="City B",
+            type="city",
+            parent="planet-b",
+            routes=[{"to": "city-b", "method": "portal"}],
+        ),
+        "world/characters/mundane-b.md": fm(
+            name="Mundane B",
+            status="alive",
+            location="city-b",
+            abilities=["casts a spell"],
+        ),
+    }
+    root = make_project(tmp_path, files, NO_MAGIC)
+    issues = run(root)
+    magic_issues = find(issues, "magic-flag")
+    flag_issues = find(issues, "world-flag")
+    assert all("planet-a" not in i["file"] and "city-a" not in i["file"] and "mage-a" not in i["file"]
+               and "arcana" not in i["file"] for i in magic_issues + flag_issues), issues
+    assert any(i["file"].endswith("mundane-b.md") and i["severity"] == "warning" for i in magic_issues)
+    assert any(i["file"].endswith("city-b.md") and i["severity"] == "error" for i in flag_issues)
+
+
+def test_per_world_magic_flag_override_disables_magic_on_one_planet(tmp_path):
+    files = {
+        "world/locations/planet-a.md": fm(name="Planet A", type="planet"),
+        "world/locations/city-a.md": fm(name="City A", type="city", parent="planet-a"),
+        "world/characters/mage-a.md": fm(
+            name="Mage A", status="alive", location="city-a", abilities=["casts a spell"]
+        ),
+        "world/locations/planet-b.md": fm(
+            name="Planet B",
+            type="planet",
+            world_flags={"magic": {"present": False, "notes": "No magic works here."}},
+        ),
+        "world/locations/city-b.md": fm(name="City B", type="city", parent="planet-b"),
+        "world/characters/mage-b.md": fm(
+            name="Mage B", status="alive", location="city-b", abilities=["casts a spell"]
+        ),
+        "world/magic-systems/forbidden.md": fm(
+            name="Forbidden Art", type="arcane", places_of_power=["city-b"]
+        ),
+    }
+    root = make_project(tmp_path, files, YES_MAGIC)
+    issues = run(root)
+    magic_issues = find(issues, "magic-flag")
+    assert not any(i["file"].endswith("mage-a.md") for i in magic_issues)
+    assert not any(i["file"].endswith("planet-b.md") for i in magic_issues)
+    assert any(i["file"].endswith("mage-b.md") and i["severity"] == "warning" for i in magic_issues)
+    assert any(i["file"].endswith("forbidden.md") and i["severity"] == "error" for i in magic_issues)
+
+
+def test_per_world_tech_flag_override(tmp_path):
+    files = {
+        "world/locations/planet-a.md": fm(
+            name="Planet A",
+            type="planet",
+            world_flags={"technology": {"steam_power": True}},
+        ),
+        "world/locations/city-a.md": fm(
+            name="City A",
+            type="city",
+            parent="planet-a",
+            routes=[{"to": "city-a", "method": "railway"}],
+        ),
+        "world/locations/planet-b.md": fm(name="Planet B", type="planet"),
+        "world/locations/city-b.md": fm(
+            name="City B",
+            type="city",
+            parent="planet-b",
+            routes=[{"to": "city-b", "method": "railway"}],
+        ),
+    }
+    root = make_project(tmp_path, files, PROJECT)
+    flag_issues = find(run(root), "world-flag", "error")
+    assert not any(i["file"].endswith("city-a.md") for i in flag_issues)
+    assert any(i["file"].endswith("city-b.md") and "steam_power" in i["message"] for i in flag_issues)

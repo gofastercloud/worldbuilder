@@ -13,7 +13,7 @@
 | `nodes` | list | every entity |
 | `edges` | list | every relationship |
 | `timeline` | `{events: [...], traditions: [...]}` | |
-| `map` | `{locations: [...], routes: [...], backdrop: str or null}` | `backdrop` is an optional custom/painted map image (`output/images/world-map.*` or `project.yaml: map_image`) |
+| `map` | `{locations: [...], routes: [...], backdrop: str or null, scopes: [...], cross_world_routes: [...]}` | `backdrop` is an optional custom/painted map image (`output/images/world-map.*` or `project.yaml: map_image`); `scopes` groups multi-world settings by top-level scope location |
 | `climate` | `{zones: [...], legend: {zone: colour}}` | |
 | `life` | `{species_index: [...]}` | |
 | `economy` | `{resources, trade_routes, currencies, shocks}` | |
@@ -80,6 +80,17 @@ Route: `{id, from, to, modes, goods, reciprocal}`
 ```
 
 Routes are undirected: the two declarations (A lists B, B lists A) merge into one entry with `from < to` alphabetically and `id = "<from>--<to>"`. `reciprocal` is false when only one side declares it (a validator warning too). `modes` are merged by mode name; `distance`/`time` are strings or null. `goods` are resource names carried, from economy trade routes whose `from`, `via`, `to` chain includes this leg.
+
+### Multi-world scopes (`map.scopes` and `map.cross_world_routes`)
+
+Locations whose `type` is one of `world`, `planet`, `realm`, `plane`, or `system` are recognised as independent map scopes. Each location is assigned to its nearest ancestor scope (including itself), or `null` if none exists.
+
+- `map.scopes`: sorted list of `{id, name, type, backdrop, locations, routes}` (empty `[]` when no scope locations exist).
+  - `backdrop`: optional per-world map image resolved from `map_image:` in the scope location's frontmatter or `output/images/maps/<scope-slug>.{png,jpg,jpeg,webp}` (relative path from `output/world-viewer.html`, or a `data:image/...;base64,...` URI with `--embed-images`), else `null`.
+  - `locations`: the scope's member locations, each with its own normalised `[0, 1000]` surface `x`, `y` coordinates computed independently within that scope.
+  - `routes`: intra-scope routes where both endpoints belong to this scope.
+- `map.cross_world_routes`: routes connecting two different scopes, each carrying all standard route fields plus `cross_world: true`, `from_scope`, and `to_scope`.
+- Top-level `map.locations` and `map.routes` remain intact for backwards compatibility.
 
 ### Layout
 
