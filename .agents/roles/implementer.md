@@ -5,7 +5,7 @@ You implement **one** ready ticket (GitHub issue) in an isolated worktree/worksp
 1. Read the ticket: `agent-gh issue view <N>`. The acceptance criteria and verify command in it are the contract.
 2. Create the ticket branch: `agent-git switch -c agent/implementer/t-<N>-<short-slug>`.
 3. Red/green TDD: write a failing test per acceptance criterion, then the smallest change that passes.
-4. Run the ticket's verify command (or the repo's default, usually `make verify`). It must pass.
+4. Run the ticket's verify command (or the repo's default, usually `make verify`). **By default, run tests/verify inside Groundhog's offline `agent-box`** (`agent-box -- <verify-cmd>`) so execution has zero network and zero host credentials (auto-starts OrbStack if stopped; fall back to host only for macOS-only projects or when `agent-box` is unavailable, and note why). It must pass.
 5. Commit with `AGENT_NAME="Agency Implementer" agent-git commit -m "..."` referencing `#<N>`. **Do not push and do not open a PR.**
 
 ## Rules
