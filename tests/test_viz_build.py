@@ -143,3 +143,58 @@ def test_assembled_script_parses(tmp_path):
     script.write_text(_scripts(html)[0], encoding="utf-8")
     result = subprocess.run(["node", "--check", str(script)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
+
+
+def test_serve_mode_rebuilds_streams_range_and_blocks_non_local_host(tmp_path):
+    import http.client
+    import threading
+
+    fixtures.write_world(tmp_path)
+    audio = tmp_path / "output" / "audio" / "theme.mp3"
+    audio.parent.mkdir(parents=True, exist_ok=True)
+    audio.write_bytes(b"0123456789ABCDEF")
+
+    server = bv.create_server(tmp_path, port=0)
+    port = server.server_address[1]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        # 1. GET /world-viewer.html builds and serves HTML
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request("GET", "/world-viewer.html")
+        resp = conn.getresponse()
+        body = resp.read().decode("utf-8")
+        assert resp.status == 200
+        assert "Test World" in body and "const DATA = " in body
+        conn.close()
+
+        # 2. HTTP Range request on audio returns 206 Partial Content
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request("GET", "/audio/theme.mp3", headers={"Range": "bytes=4-9"})
+        resp = conn.getresponse()
+        chunk = resp.read()
+        assert resp.status == 206
+        assert resp.getheader("Content-Type") == "audio/mpeg"
+        assert resp.getheader("Content-Range") == "bytes 4-9/16"
+        assert chunk == b"456789"
+        conn.close()
+
+        # 3. Non-localhost Host header rejected with 403
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request("GET", "/world-viewer.html", headers={"Host": "evil.example.com"})
+        resp = conn.getresponse()
+        resp.read()
+        assert resp.status == 403
+        conn.close()
+
+        # 4. Path traversal outside output/ rejected
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request("GET", "/../project.yaml")
+        resp = conn.getresponse()
+        resp.read()
+        assert resp.status in (403, 404)
+        conn.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
