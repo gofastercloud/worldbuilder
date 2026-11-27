@@ -29,6 +29,7 @@ Tabs run in this order. Every view shares one selection: click anything and the 
 - Timeline: era bands, events on lanes by type or by location, marker size by significance, causal arcs from cause to effect, traditions (diamonds) at first attestation with dashed links to their origin events, and the present date line when set. Ctrl+wheel zooms. Keys: left and right move by date, up goes to a cause, down to an effect. A screen reader table lists the events in order.
 - Map, Trade and Life: locations and routes, trade routes and resources, climate zones with flora and fauna.
 - Gallery: responsive grid of entity artwork cards respecting search, type and era filters. Clicking a card selects the entity in the detail panel.
+- Content: two-pane reader for generated short stories, D&D 5e campaigns, and chapters discovered in `stories/`, `story/chapters/`, `output/stories/`, and `output/campaigns/`, with clickable inline entity links that open the right-hand detail panel.
 
 ## Controls
 

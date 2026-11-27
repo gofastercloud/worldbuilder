@@ -17,6 +17,7 @@
 | `climate` | `{zones: [...], legend: {zone: colour}}` | |
 | `life` | `{species_index: [...]}` | |
 | `economy` | `{resources, trade_routes, currencies, shocks}` | |
+| `content` | list | discovered stories, D&D 5e campaigns, and chapters (`stories/`, `story/chapters/`, `output/stories/`, `output/campaigns/`) |
 | `warnings` | list of str | missing or sparse data, for a banner |
 
 ## calendar

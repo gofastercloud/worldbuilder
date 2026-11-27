@@ -65,7 +65,45 @@ def test_example_builds_to_one_self_contained_page(tmp_path):
     html = _build(EXAMPLE, tmp_path)
     _check_single_file(html)
     assert "The Lattice" in html
-    assert "WB.registerView" in html and "'graph'" in html and "'timeline'" in html and "'gallery'" in html
+    assert (
+        "WB.registerView" in html
+        and "'graph'" in html
+        and "'timeline'" in html
+        and "'gallery'" in html
+        and "'content'" in html
+    )
+
+
+def test_content_tab_discovers_stories_and_campaigns_and_escapes_html(tmp_path):
+    fixtures.write_world(tmp_path)
+    stories_dir = tmp_path / "stories"
+    stories_dir.mkdir(parents=True)
+    (stories_dir / "harbour-tale.md").write_text(
+        "---\ntitle: The Harbour Tale\ndate: 10 AE\n---\n# The Harbour Tale\n\n"
+        "A tale set in `harbour` with <script>alert(1)</script> safely escaped.\n\n"
+        "> Read-aloud box\n\n| Col A | Col B |\n| --- | --- |\n| 1 | 2 |\n",
+        encoding="utf-8",
+    )
+    camp_dir = tmp_path / "output" / "campaigns"
+    camp_dir.mkdir(parents=True)
+    (camp_dir / "era-campaign.md").write_text(
+        "---\ntitle: Era 5e Campaign\nsystem: D&D 5e\nlevel: 1-4\n---\n# Era 5e Campaign\n\n"
+        "Starts at `harbour`.\n",
+        encoding="utf-8",
+    )
+    data = bv.viz_data.build_viz_data(tmp_path)
+    assert data["counts"]["content"] == 2
+    by_kind = {item["kind"]: item for item in data["content"]}
+    assert "story" in by_kind and "campaign" in by_kind
+    story_html = by_kind["story"]["html"]
+    assert "<script>" not in story_html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in story_html
+    assert 'data-entity="harbour"' in story_html
+    assert "<blockquote>" in story_html
+    assert "<table>" in story_html
+    html = _build(tmp_path, tmp_path)
+    _check_single_file(html)
+    assert "The Harbour Tale" in html and "Era 5e Campaign" in html
 
 
 def test_embed_images_flag_produces_portable_single_file(tmp_path):
