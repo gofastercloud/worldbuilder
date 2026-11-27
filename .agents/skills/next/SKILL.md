@@ -4,7 +4,7 @@ description: Dispatch the next ready tickets to implementers, review them, and s
 argument-hint: "[max tickets, default 2]"
 ---
 
-Work the backlog, one batch of up to `$ARGUMENTS` (default 2, never more than 3) tickets. Use `agent-git` and `agent-gh` for all Git/GitHub operations.
+Work the backlog, one batch of up to `$ARGUMENTS` (default 2, never more than 3) tickets. Use `agent-git` and `agent-gh` when installed (Groundhog); otherwise fall back to `git` and `gh` (and always open draft PRs for human merge when using a personal `gh` login).
 
 **1. Pick.** Determine the trusted maintainer login from `.github/CODEOWNERS` (or repo owner; note `agent-gh` authenticates as the GitHub App bot, so filter by the maintainer login, not `@me`). Run:
 `agent-gh issue list --author <owner> --state open --label ready-for-agent --json number,title --limit 20`
@@ -24,6 +24,8 @@ Then start one `implementer` per ticket in the background (Claude Code: `impleme
 **3. Check the work.** When an implementer reports:
 - If it says `BLOCKED`, put the question in `STATUS.md`, swap the ticket's `in-progress` label for `needs-human`, and move on.
 - Otherwise start a fresh-context `reviewer` with the ticket number and branch.
+- Record every reviewer verdict (when `.claude/hooks/gtq.py` is present):
+  `python3 .claude/hooks/gtq.py verdict --ticket <N> --attempt <1|2> --result <PASS|FAIL> --reason "<one-line summary>"`
 - If the reviewer returns `FAIL`, resume the same implementer once with the numbered findings. If it fails a second time, swap `in-progress` for `needs-human`.
 - Never pass on an implementer's claim without the reviewer's verdict.
 
