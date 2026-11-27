@@ -106,6 +106,27 @@ def test_content_tab_discovers_stories_and_campaigns_and_escapes_html(tmp_path):
     assert "The Harbour Tale" in html and "Era 5e Campaign" in html
 
 
+def test_map_backdrop_discovery_and_embed_images(tmp_path):
+    import base64
+
+    fixtures.write_world(tmp_path)
+    png_bytes = b"\x89PNG\r\n\x1a\nworldmap"
+    img_dir = tmp_path / "output" / "images"
+    img_dir.mkdir(parents=True, exist_ok=True)
+    (img_dir / "world-map.png").write_bytes(png_bytes)
+
+    data_rel = bv.viz_data.build_viz_data(tmp_path, embed_images=False)
+    assert data_rel["map"]["backdrop"] == "images/world-map.png"
+
+    data_emb = bv.viz_data.build_viz_data(tmp_path, embed_images=True)
+    expected = "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
+    assert data_emb["map"]["backdrop"] == expected
+
+    html = _build(tmp_path, tmp_path)
+    _check_single_file(html)
+    assert "buildProceduralTerrain" in html and "Painted Map" in html
+
+
 def test_embed_images_flag_produces_portable_single_file(tmp_path):
     import base64
 
