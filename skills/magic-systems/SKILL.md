@@ -9,7 +9,7 @@ Magic is a fact about physics, so it changes everything downstream. A good syste
 
 ## Step 0: the yes/no gate (never skip)
 
-Read `world_flags.magic` in `project.yaml` before anything else.
+Read `world_flags.magic` in `project.yaml` before anything else. In a multi-world project (where top-level locations have `type` in `world`, `planet`, `realm`, `plane`, or `system`), also check the target ancestor scope location's optional `world_flags.magic` override, which merges over `project.yaml` for entities in that scope (for example, magic enabled on Planet A while disabled on Planet B, or vice versa).
 
 | State | Action |
 |-------|--------|

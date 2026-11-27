@@ -40,6 +40,7 @@ yaml = _v.yaml
 VERSION = 1
 LAYOUT_SIZE = 1000.0
 LAYOUT_ITERATIONS = 80
+SCOPE_LOCATION_TYPES = _v.SCOPE_LOCATION_TYPES
 IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp")
 IMAGE_MIME = {
     ".png": "image/png",
@@ -482,6 +483,25 @@ def _map_backdrop(project, config, *, embed=False):
     return None
 
 
+def _scope_backdrop(project, slug, meta, *, embed=False):
+    """Locate optional per-world map backdrop (`map_image:` frontmatter or output/images/maps/<slug>.*)."""
+    output_dir = project / "output"
+    raw = _str((meta or {}).get("map_image")) if isinstance(meta, dict) else None
+    if raw and raw.startswith("data:image/"):
+        return raw
+    if raw and not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", raw):
+        for base in (output_dir, project):
+            cand = (base / raw).resolve()
+            if cand.suffix.lower() in IMAGE_MIME and _is_within(cand, project) and cand.is_file():
+                return _encode_or_rel(cand, project, IMAGE_MIME, embed=embed)
+    maps_dir = output_dir / "images" / "maps"
+    for ext in IMAGE_EXTS:
+        cand = maps_dir / f"{slug}{ext}"
+        if cand.is_file():
+            return _encode_or_rel(cand, project, IMAGE_MIME, embed=embed)
+    return None
+
+
 def _nodes(g, project, *, embed_images=False):
     nodes = []
     for slug in sorted(g.nodes):
@@ -671,7 +691,57 @@ def _mean(vals):
     return round(sum(vals) / len(vals), 1) if vals else None
 
 
-def _map(g, economy_routes_by_pair):
+def _map_scopes(g, project, loc_ids, parents, pinned, locations, routes, *, embed_images=False):
+    """Group locations into per-world/realm scopes with normalised [0, 1000] layouts and cross-world routes."""
+    scope_roots = [s for s in loc_ids if (_str(_meta(g, s).get("type")) or "").lower() in SCOPE_LOCATION_TYPES]
+    if not scope_roots:
+        return [], []
+    scope_set = set(scope_roots)
+    loc_scope = {}
+    for s in loc_ids:
+        cur, seen, found = s, set(), None
+        while cur and cur not in seen:
+            seen.add(cur)
+            if cur in scope_set:
+                found = cur
+                break
+            cur = parents.get(cur)
+        loc_scope[s] = found
+
+    loc_by_id = {loc["id"]: loc for loc in locations}
+    scopes = []
+    for scope_id in scope_roots:
+        member_ids = [s for s in loc_ids if loc_scope.get(s) == scope_id]
+        member_set = set(member_ids)
+        scope_routes = [r for r in routes if r["from"] in member_set and r["to"] in member_set]
+        scope_parents = {s: (parents[s] if parents.get(s) in member_set else None) for s in member_ids}
+        scope_pinned = {s: pinned[s] for s in member_ids if s in pinned}
+        scope_layout = compute_layout(
+            member_ids,
+            scope_parents,
+            [(r["from"], r["to"]) for r in scope_routes],
+            pinned=scope_pinned or None,
+        )
+        scope_locations = [dict(loc_by_id[s], x=scope_layout[s][0], y=scope_layout[s][1]) for s in member_ids]
+        meta = _meta(g, scope_id)
+        scopes.append({
+            "id": scope_id,
+            "name": g.nodes[scope_id]["name"],
+            "type": _str(meta.get("type")),
+            "backdrop": _scope_backdrop(project, scope_id, meta, embed=embed_images),
+            "locations": scope_locations,
+            "routes": scope_routes,
+        })
+
+    cross_world_routes = []
+    for r in routes:
+        sa, sb = loc_scope.get(r["from"]), loc_scope.get(r["to"])
+        if sa and sb and sa != sb:
+            cross_world_routes.append(dict(r, cross_world=True, from_scope=sa, to_scope=sb))
+    return scopes, cross_world_routes
+
+
+def _map(g, economy_routes_by_pair, project, *, embed_images=False):
     loc_ids = sorted(s for s, n in g.nodes.items() if n["type"] == "location")
     parents, route_acc, pinned = {}, {}, {}
     for slug in loc_ids:
@@ -750,7 +820,10 @@ def _map(g, economy_routes_by_pair):
             "resources": _resource_entries(meta.get("resources")),
             "has_own_climate": isinstance(meta.get("climate_profile"), dict) and bool(meta.get("climate_profile")),
         })  # fmt: skip
-    return {"locations": locations, "routes": routes}
+    scopes, cross_world_routes = _map_scopes(
+        g, project, loc_ids, parents, pinned, locations, routes, embed_images=embed_images
+    )
+    return {"locations": locations, "routes": routes, "scopes": scopes, "cross_world_routes": cross_world_routes}
 
 
 def _zone_colour_map(zones):
@@ -1188,7 +1261,7 @@ def build_viz_data(project_dir, *, embed_images=False):
 
     eco, eco_err = _load_economy(project)
     trade_routes = _economy_trade_routes(g, eco) if eco else []
-    mp = _map(g, _goods_by_pair(eco, trade_routes))
+    mp = _map(g, _goods_by_pair(eco, trade_routes), project, embed_images=embed_images)
     mp["backdrop"] = _map_backdrop(project, g.config, embed=embed_images)
     locations = mp["locations"]
     economy = _economy(g, eco, locations, trade_routes)

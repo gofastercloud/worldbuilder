@@ -21,6 +21,7 @@ Templates are in `assets/templates/<type>/`. Field-by-field schemas are in `refe
 - Relationships are bidirectional. If A lists B, B must list A (child/parent, member/faction, route endpoints, allies, and so on).
 - Dates use the WorldDate system: era prefix plus year, optionally month and day. The calendar and eras (each with a unique `prefix` and a strictly increasing `sort_order`) live in `world/history/calendar.yaml`, which the validator reads; `project.yaml` only carries a short `calendar:` summary. Never invent a new era without adding it to `calendar.yaml`.
 - `project.yaml` holds world flags under `world_flags` (gunpowder, magic, FTL and similar). Content must never contradict a flag.
+- **Multi-world and multi-realm projects:** a single project can span multiple worlds, planets, realms, planes, or star systems. Give each top-level world location a `type` of `world`, `planet`, `realm`, `plane`, or `system` (with optional `map_image:` for a per-world map backdrop and optional `world_flags:` to override `project.yaml` flags for entities within that scope). The validator merges ancestor scope `world_flags` over `project.yaml` flags, and the visualiser groups each scope onto its own normalised map with cross-world routes tracked separately.
 - Each entity has `descriptions.machine` (structured, factual) and `descriptions.human` (styled prose). The machine description is the source of truth; prose must not add facts that contradict it.
 
 ## Routing: which skill owns which change

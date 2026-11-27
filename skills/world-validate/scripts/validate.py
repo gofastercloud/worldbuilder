@@ -49,6 +49,29 @@ ENTITY_DIRS = {
 ORAL_DRIFT_YEARS = 300
 TRADITION_REF_FIELDS = ("held_by", "regions", "places", "language", "related")
 
+# Top-level location types recognised as independent world/realm map & flag scopes.
+SCOPE_LOCATION_TYPES = frozenset({"world", "planet", "realm", "plane", "system"})
+
+# Entity frontmatter fields checked (in order) to associate a non-location entity with a scope location.
+ENTITY_SCOPE_FIELDS = (
+    "scope",
+    "world",
+    "planet",
+    "realm",
+    "plane",
+    "system",
+    "location",
+    "primary_location",
+    "headquarters",
+    "seat",
+    "homeland",
+    "origin",
+    "locations",
+    "places_of_power",
+    "regions",
+    "places",
+)
+
 # From assets/editors/worldrules.yaml (tech_keywords), embedded so this script
 # stays standalone.
 TECH_KEYWORDS = {
@@ -440,6 +463,31 @@ def listify(value):
     return [value]
 
 
+def _merge_world_flags(base, override):
+    """Deep-merge a scope location's world_flags over a base world_flags mapping."""
+    merged = {k: (dict(v) if isinstance(v, dict) else v) for k, v in (base or {}).items()}
+    if not isinstance(override, dict):
+        return merged
+    for group, val in override.items():
+        if isinstance(val, dict) and isinstance(merged.get(group), dict):
+            sub = dict(merged[group])
+            sub.update(val)
+            # If a scope enables magic.present without specifying prevalence, clear an inherited
+            # prevalence: none so the scope override actually enables magic.
+            if group == "magic" and "prevalence" not in val:
+                ov_present = val.get("present")
+                ov_val = ov_present.get("value") if isinstance(ov_present, dict) else ov_present
+                if ov_val is True or ov_val == "true":
+                    prev = sub.get("prevalence")
+                    prev_val = prev.get("value") if isinstance(prev, dict) else prev
+                    if isinstance(prev_val, str) and prev_val.strip().lower() == "none":
+                        sub.pop("prevalence", None)
+            merged[group] = sub
+        else:
+            merged[group] = dict(val) if isinstance(val, dict) else val
+    return merged
+
+
 class Ctx:
     """Everything a check needs."""
 
@@ -449,6 +497,8 @@ class Ctx:
         self.config = config
         self.calendar = calendar
         self.report = report
+        self._scope_chain_cache = {}
+        self._effective_flags_cache = {}
 
     def resolve(self, ref):
         ref = ref_str(ref)
@@ -472,8 +522,77 @@ class Ctx:
             return None
         return self.entities.get(resolved[0], {}).get(resolved[2])
 
-    def flag(self, group, name, aliases=None):
-        flags = (self.config.get("world_flags") or {}).get(group) or {}
+    def location_scope_chain(self, loc_slug):
+        """Return ancestor scope location slugs from outermost to innermost (including loc_slug if a scope)."""
+        if loc_slug in self._scope_chain_cache:
+            return self._scope_chain_cache[loc_slug]
+        locs = self.ents("location")
+        chain = []
+        seen = set()
+        cur = loc_slug
+        while cur and cur not in seen and cur in locs:
+            seen.add(cur)
+            meta = locs[cur]["meta"]
+            ltype = str(meta.get("type") or "").strip().lower()
+            if ltype in SCOPE_LOCATION_TYPES:
+                chain.append(cur)
+            parent = ref_str(meta.get("parent"))
+            if not parent:
+                break
+            r = self.resolve(parent)
+            cur = r[2] if r and r[0] == "location" else ""
+        result = tuple(reversed(chain))
+        self._scope_chain_cache[loc_slug] = result
+        return result
+
+    def entity_scope_chain(self, etype, slug, ent):
+        """Return ancestor scope location slugs for any entity (outermost to innermost)."""
+        if etype == "location" and slug:
+            return self.location_scope_chain(slug)
+        meta = ent.get("meta") if isinstance(ent, dict) else None
+        if not isinstance(meta, dict):
+            return ()
+        for fld in ENTITY_SCOPE_FIELDS:
+            val = meta.get(fld)
+            if val is None or val == "":
+                continue
+            for item in listify(val):
+                ref = ref_str(item)
+                if not ref:
+                    continue
+                r = self.resolve(ref)
+                if r and r[0] == "location":
+                    chain = self.location_scope_chain(r[2])
+                    if chain:
+                        return chain
+        return ()
+
+    def effective_flags(self, etype=None, slug=None, ent=None):
+        """Return effective world_flags for an entity (project.yaml merged with ancestor scope overrides)."""
+        base = self.config.get("world_flags") or {}
+        if not isinstance(base, dict):
+            base = {}
+        if etype is None and slug is None and ent is None:
+            return base
+        chain = self.entity_scope_chain(etype, slug, ent)
+        if not chain:
+            return base
+        if chain in self._effective_flags_cache:
+            return self._effective_flags_cache[chain]
+        locs = self.ents("location")
+        merged = base
+        for scope_slug in chain:
+            scope_ent = locs.get(scope_slug)
+            if not scope_ent:
+                continue
+            override = scope_ent["meta"].get("world_flags")
+            if isinstance(override, dict) and override:
+                merged = _merge_world_flags(merged, override)
+        self._effective_flags_cache[chain] = merged
+        return merged
+
+    def flag(self, group, name, aliases=None, *, ent=None, etype=None, slug=None):
+        flags = self.effective_flags(etype, slug, ent).get(group) or {}
         if not isinstance(flags, dict):
             return None
         for key in aliases or [name]:
@@ -1175,7 +1294,6 @@ def check_peoples(cx):
     R = cx.report
     species_data, races_data = cx.ents("species"), cx.ents("race")
     langs, chars, events = cx.ents("language"), cx.ents("character"), cx.ents("event")
-    cross_ok = bool(cx.flag("peoples", "cross_species_breeding"))
 
     for slug, ent in races_data.items():
         meta = ent["meta"]
@@ -1227,7 +1345,9 @@ def check_peoples(cx):
                         f"Species '{name}': relationship target '{sp_ref}' not found",
                         "Create the species file or correct the slug.",
                     )
-                if rel.get("can_interbreed") and not cross_ok:
+                if rel.get("can_interbreed") and not bool(
+                    cx.flag("peoples", "cross_species_breeding", etype="species", slug=slug, ent=ent)
+                ):
                     R.warn(
                         "world-flag",
                         ent,
@@ -1340,6 +1460,7 @@ def check_peoples(cx):
             sp1, sp2 = ps[0][1], ps[1][1]
             if sp1 and sp2 and slugify(sp1) != slugify(sp2):
                 ename = meta.get("name", slug)
+                cross_ok = bool(cx.flag("peoples", "cross_species_breeding", etype="event", slug=slug, ent=ent))
                 if not cross_ok:
                     R.error(
                         "world-flag",
@@ -1458,7 +1579,9 @@ def check_geography(cx):
             for m in [x for x in methods if x]:
                 for transport, required in TECH_TRANSPORT.items():
                     if re.search(r"\b" + re.escape(transport) + r"\b", m) or (transport in m and len(transport) > 4):
-                        val = cx.flag("technology", required, FLAG_ALIASES.get(required))
+                        val = cx.flag(
+                            "technology", required, FLAG_ALIASES.get(required), etype="location", slug=slug, ent=ent
+                        )
                         if flag_is_false(val):
                             R.error(
                                 "world-flag",
@@ -1467,7 +1590,7 @@ def check_geography(cx):
                                 f"Location '{node['name']}': route uses '{m}' but {required} = false",
                                 f"Change the transport method or set world_flags.technology.{required}.",
                             )
-                if magic_flags(cx) == "absent":
+                if magic_flags(cx, etype="location", slug=slug, ent=ent) == "absent":
                     for mt in MAGIC_TRANSPORT:
                         if re.search(r"\b" + re.escape(mt) + r"\b", m) or (mt in m and len(mt) > 4):
                             R.error(
@@ -2164,10 +2287,10 @@ def check_business_rules(cx):
 
 def check_tech_keywords(cx):
     R = cx.report
-    tech_flags = (cx.config.get("world_flags") or {}).get("technology") or {}
-    if not isinstance(tech_flags, dict):
-        return
     for slug, ent in cx.ents("chapter").items():
+        tech_flags = cx.effective_flags("chapter", slug, ent).get("technology") or {}
+        if not isinstance(tech_flags, dict):
+            continue
         title = ent["meta"].get("title", slug)
         body = (ent.get("body") or "").lower()
         if not body:
@@ -2220,14 +2343,14 @@ MAGIC_KEYWORDS = [
 NON_MAGIC_SYSTEM_TYPES = {"technology", "technological", "tech"}
 
 
-# Frontmatter keys that hold identifiers or classification, not descriptive text.
-MAGIC_SCAN_SKIP_KEYS = {"name", "title", "aliases", "tags", "type", "id", "slug"}
+# Frontmatter keys that hold identifiers, classification, or flag config, not descriptive text.
+MAGIC_SCAN_SKIP_KEYS = {"name", "title", "aliases", "tags", "type", "id", "slug", "world_flags"}
 
 
-def magic_flags(cx):
-    """Return (state, flags) where state is 'absent', 'present' or 'unset'."""
-    present = cx.flag("magic", "present")
-    prevalence = cx.flag("magic", "prevalence")
+def magic_flags(cx, *, ent=None, etype=None, slug=None):
+    """Return 'absent', 'present' or 'unset' for the effective world_flags of an entity (or project)."""
+    present = cx.flag("magic", "present", ent=ent, etype=etype, slug=slug)
+    prevalence = cx.flag("magic", "prevalence", ent=ent, etype=etype, slug=slug)
     if flag_is_false(present) or (isinstance(prevalence, str) and prevalence.strip().lower() == "none"):
         return "absent"
     if present is True or present == "true":
@@ -2250,15 +2373,33 @@ def _is_magic_entity(ent):
     return str(ent["meta"].get("type", "")).strip().lower() not in NON_MAGIC_SYSTEM_TYPES
 
 
+def _magic_exceptions_and_notes(flags):
+    exceptions = set()
+    notes = ""
+    if isinstance(flags, dict):
+        ex = flags.get("exceptions")
+        if isinstance(ex, dict):
+            ex = ex.get("value")
+        exceptions = {str(x).lower() for x in listify(ex)}
+        if isinstance(flags.get("notes"), str):
+            notes += " " + flags["notes"].lower()
+        for v in flags.values():
+            if isinstance(v, dict) and isinstance(v.get("notes"), str):
+                notes += " " + v["notes"].lower()
+    return exceptions, notes
+
+
 def check_magic_flag(cx):
     R = cx.report
-    state = magic_flags(cx)
-    if state == "unset":
-        return
     systems = cx.ents("magic-system")
-    if state == "present":
-        hardness = str(cx.flag("magic", "hardness") or "").strip().lower()
-        for slug, ent in systems.items():
+    hint = (
+        "World flag magic is false/none: remove the entity, recast it as technology (type: technology), "
+        "or change world_flags.magic deliberately and sweep everything written so far."
+    )
+    for slug, ent in systems.items():
+        state = magic_flags(cx, etype="magic-system", slug=slug, ent=ent)
+        if state == "present":
+            hardness = str(cx.flag("magic", "hardness", etype="magic-system", slug=slug, ent=ent) or "").strip().lower()
             m = ent["meta"]
             nm = m.get("name", slug)
             if not _nonempty(m.get("source")):
@@ -2278,23 +2419,18 @@ def check_magic_flag(cx):
                     R.warn("magic-system", ent, "limitations",
                            f"Magic system '{nm}' has no limits but world_flags.magic.hardness is {hardness}.",
                            "Add limitations or cannot_do.")
-        return
-
-    # absent: the world is non-magical
-    hint = (
-        "World flag magic is false/none: remove the entity, recast it as technology (type: technology), "
-        "or change world_flags.magic deliberately and sweep everything written so far."
-    )
-    for slug, ent in systems.items():
-        if _is_magic_entity(ent):
+        elif state == "absent" and _is_magic_entity(ent):
             R.error("magic-flag", ent, "type",
                     f"Magic system '{ent['meta'].get('name', slug)}' exists but world_flags.magic says "
                     "there is no magic.", hint)
+
     magic_slugs = {s for s, e in systems.items() if _is_magic_entity(e)}
     for etype, bucket in cx.entities.items():
         if etype == "magic-system":
             continue
         for slug, ent in bucket.items():
+            if magic_flags(cx, etype=etype, slug=slug, ent=ent) != "absent":
+                continue
             meta = ent["meta"]
             for key, val in meta.items():
                 is_key = str(key).lower() in ("magic_system", "magic_systems", "magic-system", "magic-systems")
@@ -2311,29 +2447,16 @@ def check_magic_flag(cx):
                         R.error("magic-flag", ent, key,
                                 f"'{meta.get('name', slug)}' references magic system '{text}' but "
                                 "world_flags.magic says there is no magic.", hint)
-    # keyword scan of every frontmatter text field
-    flags = (cx.config.get("world_flags") or {}).get("magic") or {}
-    exceptions = set()
-    notes = ""
-    if isinstance(flags, dict):
-        ex = flags.get("exceptions")
-        if isinstance(ex, dict):
-            ex = ex.get("value")
-        exceptions = {str(x).lower() for x in listify(ex)}
-        if isinstance(flags.get("notes"), str):
-            notes += " " + flags["notes"].lower()
-        for k, v in flags.items():
-            if isinstance(v, dict) and isinstance(v.get("notes"), str):
-                notes += " " + v["notes"].lower()
-    for etype, bucket in cx.entities.items():
-        # Traditions are beliefs, not facts about the world: a myth may speak of magic in a
-        # world without it. (Structured references to magic-system entities stay errors, above.)
-        if etype in ("chapter", "magic-system", "tradition"):
-            continue
-        for slug, ent in bucket.items():
+
+            # Traditions are beliefs, not facts about the world: a myth may speak of magic in a
+            # world without it. (Structured references to magic-system entities stay errors, above.)
+            if etype in ("chapter", "tradition"):
+                continue
+            flags = cx.effective_flags(etype, slug, ent).get("magic") or {}
+            exceptions, notes = _magic_exceptions_and_notes(flags)
             # Every text field in the frontmatter, but not the Markdown body (prose may
             # discuss the absence of magic) and not identifiers such as names and tags.
-            for key, val in ent["meta"].items():
+            for key, val in meta.items():
                 if str(key).lower() in MAGIC_SCAN_SKIP_KEYS:
                     continue
                 text = " ".join(_walk_strings(val)).lower()
@@ -2346,7 +2469,7 @@ def check_magic_flag(cx):
                     if m:
                         ctx = text[max(0, m.start() - 20) : m.end() + 20].replace("\n", " ").strip()
                         R.warn("magic-flag", ent, str(key),
-                               f"'{ent['meta'].get('name', slug)}': magic term '{kw}' in {key} but "
+                               f"'{meta.get('name', slug)}': magic term '{kw}' in {key} but "
                                f"world_flags.magic says there is no magic. Context: '...{ctx}...'",
                                "Rephrase as technology/natural phenomenon, or list it in "
                                "world_flags.magic.exceptions.")

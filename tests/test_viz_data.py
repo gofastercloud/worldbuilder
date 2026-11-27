@@ -528,3 +528,127 @@ def test_audio_discovery_and_embed_media(world):
     assert bv.main([str(world), "--embed-media", "--out", str(out)]) == 0
     html = out.read_text(encoding="utf-8")
     assert "data:audio/mpeg;base64," in html and "WB.audio" in html
+
+
+# ── multi-world scoping ─────────────────────────────────────────────────────
+
+
+def _write_multi_world(root):
+    (root / "world" / "locations").mkdir(parents=True)
+    (root / "world" / "history").mkdir(parents=True)
+    (root / "project.yaml").write_text("title: Multi World\n")
+    (root / "world" / "history" / "calendar.yaml").write_text(CALENDAR)
+    loc = root / "world" / "locations"
+    (loc / "planet-a.md").write_text(md({"name": "Planet A", "type": "planet"}))
+    (loc / "city-a1.md").write_text(
+        md({
+            "name": "City A1",
+            "type": "city",
+            "parent": "planet-a",
+            "routes": [
+                {"to": "city-a2", "methods": [{"mode": "road", "travel_time": "2 days"}]},
+                {"to": "city-b1", "methods": [{"mode": "starship", "travel_time": "5 days"}]},
+            ],
+        })
+    )
+    (loc / "city-a2.md").write_text(
+        md({
+            "name": "City A2",
+            "type": "city",
+            "parent": "planet-a",
+            "routes": [{"to": "city-a1", "methods": [{"mode": "road"}]}],
+        })
+    )
+    (loc / "planet-b.md").write_text(md({"name": "Planet B", "type": "planet"}))
+    (loc / "city-b1.md").write_text(
+        md({
+            "name": "City B1",
+            "type": "city",
+            "parent": "planet-b",
+            "routes": [
+                {"to": "city-b2", "methods": [{"mode": "ship"}]},
+                {"to": "city-a1", "methods": [{"mode": "starship"}]},
+            ],
+        })
+    )
+    (loc / "city-b2.md").write_text(
+        md({
+            "name": "City B2",
+            "type": "city",
+            "parent": "planet-b",
+            "routes": [{"to": "city-b1", "methods": [{"mode": "ship"}]}],
+        })
+    )
+
+
+def test_multi_world_scopes_grouping_and_cross_world_routes(tmp_path):
+    _write_multi_world(tmp_path)
+    data = vd.build_viz_data(tmp_path)
+    assert set(data) == TOP_KEYS
+    mp = data["map"]
+    # Backwards-compatible top-level locations and routes remain intact
+    assert len(mp["locations"]) == 6
+    assert len(mp["routes"]) == 3
+
+    scopes = {s["id"]: s for s in mp["scopes"]}
+    assert list(scopes) == ["planet-a", "planet-b"]
+    for sid, expected_locs, expected_route in (
+        ("planet-a", {"planet-a", "city-a1", "city-a2"}, "city-a1--city-a2"),
+        ("planet-b", {"planet-b", "city-b1", "city-b2"}, "city-b1--city-b2"),
+    ):
+        sc = scopes[sid]
+        assert set(sc) == {"id", "name", "type", "backdrop", "locations", "routes"}
+        assert sc["type"] == "planet"
+        assert sc["backdrop"] is None
+        assert {loc["id"] for loc in sc["locations"]} == expected_locs
+        assert all(0 <= loc["x"] <= 1000 and 0 <= loc["y"] <= 1000 for loc in sc["locations"])
+        assert [r["id"] for r in sc["routes"]] == [expected_route]
+
+    assert len(mp["cross_world_routes"]) == 1
+    cw = mp["cross_world_routes"][0]
+    assert cw["id"] == "city-a1--city-b1"
+    assert cw["cross_world"] is True
+    assert cw["from_scope"] == "planet-a"
+    assert cw["to_scope"] == "planet-b"
+
+
+def test_per_world_scope_backdrops_frontmatter_convention_and_embed(tmp_path):
+    import base64
+
+    _write_multi_world(tmp_path)
+    png_bytes = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+    webp_bytes = b"RIFF\x0c\x00\x00\x00WEBPVP8 "
+    custom_dir = tmp_path / "output" / "images" / "custom"
+    maps_dir = tmp_path / "output" / "images" / "maps"
+    custom_dir.mkdir(parents=True)
+    maps_dir.mkdir(parents=True)
+    (custom_dir / "planet-a-map.png").write_bytes(png_bytes)
+    (maps_dir / "planet-b.webp").write_bytes(webp_bytes)
+
+    loc = tmp_path / "world" / "locations"
+    (loc / "planet-a.md").write_text(
+        md({"name": "Planet A", "type": "planet", "map_image": "images/custom/planet-a-map.png"})
+    )
+    (loc / "realm-c.md").write_text(
+        md({"name": "Realm C", "type": "realm", "map_image": "https://evil.example/map.png"})
+    )
+
+    rel_data = vd.build_viz_data(tmp_path, embed_images=False)
+    rel_scopes = {s["id"]: s for s in rel_data["map"]["scopes"]}
+    assert rel_scopes["planet-a"]["backdrop"] == "images/custom/planet-a-map.png"
+    assert rel_scopes["planet-b"]["backdrop"] == "images/maps/planet-b.webp"
+    assert rel_scopes["realm-c"]["backdrop"] is None
+
+    emb_data = vd.build_viz_data(tmp_path, embed_images=True)
+    emb_scopes = {s["id"]: s for s in emb_data["map"]["scopes"]}
+    assert emb_scopes["planet-a"]["backdrop"] == "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
+    assert emb_scopes["planet-b"]["backdrop"] == "data:image/webp;base64," + base64.b64encode(webp_bytes).decode(
+        "ascii"
+    )
+    assert emb_scopes["realm-c"]["backdrop"] is None
+
+
+def test_single_world_without_scope_types_has_empty_scopes(world):
+    mp = vd.build_viz_data(world)["map"]
+    assert mp["scopes"] == []
+    assert mp["cross_world_routes"] == []
