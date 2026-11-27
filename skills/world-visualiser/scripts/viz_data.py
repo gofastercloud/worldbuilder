@@ -428,6 +428,26 @@ def _project_audio(project, config, *, embed=False):
     return None
 
 
+def _map_backdrop(project, config, *, embed=False):
+    """Locate optional world map backdrop (config `map_image:` override, or output/images/world-map.*)."""
+    output_dir = project / "output"
+    raw = _str((config or {}).get("map_image")) if isinstance(config, dict) else None
+    if raw and raw.startswith("data:image/"):
+        return raw
+    if raw and not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", raw):
+        for base in (output_dir, project):
+            cand = (base / raw).resolve()
+            if cand.suffix.lower() in IMAGE_MIME and _is_within(cand, project) and cand.is_file():
+                return _encode_or_rel(cand, project, IMAGE_MIME, embed=embed)
+    img_dir = output_dir / "images"
+    for stem in ("world-map", "map"):
+        for ext in IMAGE_EXTS:
+            cand = img_dir / f"{stem}{ext}"
+            if cand.is_file():
+                return _encode_or_rel(cand, project, IMAGE_MIME, embed=embed)
+    return None
+
+
 def _nodes(g, project, *, embed_images=False):
     nodes = []
     for slug in sorted(g.nodes):
@@ -1131,6 +1151,7 @@ def build_viz_data(project_dir, *, embed_images=False):
     eco, eco_err = _load_economy(project)
     trade_routes = _economy_trade_routes(g, eco) if eco else []
     mp = _map(g, _goods_by_pair(eco, trade_routes))
+    mp["backdrop"] = _map_backdrop(project, g.config, embed=embed_images)
     locations = mp["locations"]
     economy = _economy(g, eco, locations, trade_routes)
     known_routes = {r["id"] for r in mp["routes"]}

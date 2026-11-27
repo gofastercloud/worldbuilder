@@ -13,7 +13,7 @@
 | `nodes` | list | every entity |
 | `edges` | list | every relationship |
 | `timeline` | `{events: [...], traditions: [...]}` | |
-| `map` | `{locations: [...], routes: [...]}` | |
+| `map` | `{locations: [...], routes: [...], backdrop: str or null}` | `backdrop` is an optional custom/painted map image (`output/images/world-map.*` or `project.yaml: map_image`) |
 | `climate` | `{zones: [...], legend: {zone: colour}}` | |
 | `life` | `{species_index: [...]}` | |
 | `economy` | `{resources, trade_routes, currencies, shocks}` | |

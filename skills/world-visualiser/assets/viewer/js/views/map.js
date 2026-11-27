@@ -246,11 +246,194 @@
   }
 
   const st = {
-    mode: 'type', sizeBy: 'population', halos: true, pulses: true, labels: true,
+    mode: 'type', sizeBy: 'population', style: 'topographic', halos: true, pulses: true, labels: true,
     res: '', a: null, b: null, route: null, hoverId: null, focusId: null,
     active: false, dirty: true, raf: 0, reduced: false,
   };
   let W, G, root, stage, svg, pz, ui = {}, layers = {}, markers = {}, routeEls = [], pulses = [], modeCol = {}, shapes = {}, typeCol = {};
+  const terrainCache = {};
+
+  function hashSeed(str) {
+    let h0 = 2166136261;
+    const s = String(str || 'world');
+    for (let i = 0; i < s.length; i++) { h0 ^= s.charCodeAt(i); h0 = Math.imul(h0, 16777619); }
+    return h0 >>> 0;
+  }
+  function vNoise(x, y, seed) {
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    function h2(ix, iy) {
+      let n = Math.imul(ix, 374761393) ^ Math.imul(iy, 668265263) ^ Math.imul(seed, 1442695041);
+      n = Math.imul(n ^ (n >>> 13), 1274126177);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    }
+    const a = h2(xi, yi), b = h2(xi + 1, yi), c = h2(xi, yi + 1), d = h2(xi + 1, yi + 1);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  }
+  function fbm(x, y, seed) {
+    let sum = 0, amp = 0.5, freq = 1;
+    for (let o = 0; o < 5; o++) {
+      sum += amp * vNoise(x * freq, y * freq, seed + o * 97);
+      freq *= 2.04; amp *= 0.5;
+    }
+    return sum;
+  }
+  function isMarineLoc(l) {
+    if (l.elevation_m != null && l.elevation_m < 0) return true;
+    const txt = ((l.type || '') + ' ' + (l.terrain || '') + ' ' + (l.name || '')).toLowerCase();
+    return /\b(trench|abyss|ocean|sea|raft|floating|strait|channel|lagoon|reef|pelagic|water)\b/.test(txt);
+  }
+  function zoneTintRgb(z) {
+    const k = String(z || '').toLowerCase();
+    if (k === 'arid' || k === 'semi-arid') return [204, 174, 118];
+    if (k === 'tropical') return [68, 134, 82];
+    if (k === 'polar' || k === 'subarctic' || k === 'alpine') return [176, 190, 200];
+    if (k === 'mediterranean') return [152, 166, 98];
+    if (k === 'continental') return [104, 140, 92];
+    return [112, 148, 102]; // temperate / default
+  }
+  function buildProceduralTerrain(style) {
+    if (terrainCache[style]) return terrainCache[style];
+    if (typeof document === 'undefined' || !document.createElement) return null;
+    const size = 420;
+    const cvs = document.createElement('canvas');
+    cvs.width = size; cvs.height = size;
+    const ctx = cvs.getContext && cvs.getContext('2d');
+    if (!ctx) return null;
+    const seed = hashSeed((G.D.project && G.D.project.name) || 'world');
+    const seeds = G.locs.map(function (l) {
+      const marine = isMarineLoc(l);
+      let w = marine ? -0.46 : 0.44;
+      if (l.elevation_m != null && !isNaN(l.elevation_m)) {
+        w = l.elevation_m < 0 ? -Math.min(0.65, 0.28 + Math.abs(l.elevation_m) / 6000) : Math.min(0.75, 0.3 + l.elevation_m / 3500);
+      }
+      const rad = l.type === 'region' || l.type === 'continent' ? 210 : (marine ? 155 : 145);
+      return { x: l.x, y: l.y, w: w, r2: rad * rad, rgb: zoneTintRgb(l.climate && l.climate.zone) };
+    });
+
+    const field = new Float32Array(size * size);
+    const biomeR = new Float32Array(size * size);
+    const biomeG = new Float32Array(size * size);
+    const biomeB = new Float32Array(size * size);
+
+    for (let py = 0; py < size; py++) {
+      const wy = (py / (size - 1)) * 1000;
+      for (let px = 0; px < size; px++) {
+        const wx = (px / (size - 1)) * 1000;
+        const n = fbm(wx / 210, wy / 210, seed);
+        const detail = fbm(wx / 70 + 11.3, wy / 70 + 7.1, seed ^ 0x9e3779b9);
+        let hVal = (n - 0.52) * 0.85 + (detail - 0.5) * 0.26;
+        let br = 112, bg = 148, bb = 102, bw = 0.25;
+        for (let i = 0; i < seeds.length; i++) {
+          const s = seeds[i];
+          const dx = wx - s.x, dy = wy - s.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 > s.r2 * 4.5) continue;
+          const gVal = Math.exp(-d2 / (2 * s.r2));
+          hVal += s.w * gVal;
+          if (s.w > 0) { br += s.rgb[0] * gVal; bg += s.rgb[1] * gVal; bb += s.rgb[2] * gVal; bw += gVal; }
+        }
+        const idx = py * size + px;
+        field[idx] = hVal;
+        biomeR[idx] = br / bw; biomeG[idx] = bg / bw; biomeB[idx] = bb / bw;
+      }
+    }
+
+    const img = ctx.createImageData(size, size);
+    const d = img.data;
+    const isParch = style === 'parchment';
+
+    for (let py = 0; py < size; py++) {
+      for (let px = 0; px < size; px++) {
+        const idx = py * size + px;
+        const hVal = field[idx];
+        const hL = field[py * size + Math.max(0, px - 1)];
+        const hR = field[py * size + Math.min(size - 1, px + 1)];
+        const hU = field[Math.max(0, py - 1) * size + px];
+        const hD = field[Math.min(size - 1, py + 1) * size + px];
+        const shade = Math.max(-0.35, Math.min(0.35, ((hL - hR) + (hU - hD)) * 2.2));
+        let r, g, b;
+
+        if (isParch) {
+          const grain = (vNoise(px * 0.45, py * 0.45, seed + 511) - 0.5) * 14;
+          if (hVal < 0) {
+            const dCoast = Math.abs(hVal);
+            const ripple = (dCoast > 0.015 && dCoast < 0.032) || (dCoast > 0.05 && dCoast < 0.064);
+            r = ripple ? 168 : 210 - Math.min(28, dCoast * 55);
+            g = ripple ? 156 : 202 - Math.min(26, dCoast * 52);
+            b = ripple ? 132 : 180 - Math.min(22, dCoast * 44);
+          } else {
+            const coast = hVal < 0.018;
+            const contour = hVal > 0.14 && Math.abs((hVal * 10) % 1 - 0.5) < 0.055;
+            if (coast) { r = 92; g = 70; b = 46; }
+            else if (contour) { r = 162; g = 138; b = 104; }
+            else {
+              r = 236 - hVal * 34 + shade * 45;
+              g = 220 - hVal * 40 + shade * 40;
+              b = 184 - hVal * 46 + shade * 32;
+            }
+          }
+          r += grain; g += grain * 0.9; b += grain * 0.7;
+        } else {
+          // Topographic / satellite hypsometric tint + directional hill-shading
+          if (hVal < 0) {
+            const depth = Math.min(1, Math.abs(hVal) * 1.45);
+            const bathy = Math.abs((depth * 7) % 1 - 0.5) < 0.035;
+            r = 16 + (1 - depth) * 34 + (bathy ? 12 : 0);
+            g = 38 + (1 - depth) * 76 + (bathy ? 14 : 0);
+            b = 68 + (1 - depth) * 92 + (bathy ? 16 : 0);
+          } else if (hVal < 0.035) {
+            // Coastal beach / shoal rim
+            r = 198 + shade * 35; g = 186 + shade * 32; b = 148 + shade * 24;
+          } else if (hVal < 0.38) {
+            const t = (hVal - 0.035) / 0.345;
+            r = biomeR[idx] * (1 - t * 0.25) + 122 * t * 0.25 + shade * 90;
+            g = biomeG[idx] * (1 - t * 0.28) + 114 * t * 0.28 + shade * 86;
+            b = biomeB[idx] * (1 - t * 0.22) + 98 * t * 0.22 + shade * 78;
+          } else if (hVal < 0.62) {
+            const t = (hVal - 0.38) / 0.24;
+            r = 128 + t * 48 + shade * 110;
+            g = 118 + t * 48 + shade * 105;
+            b = 104 + t * 52 + shade * 100;
+          } else {
+            r = 224 + shade * 65; g = 228 + shade * 65; b = 234 + shade * 65;
+          }
+          if (hVal > 0.04 && Math.abs((hVal * 12) % 1 - 0.5) < 0.03) {
+            r -= 14; g -= 14; b -= 12;
+          }
+        }
+        const o = idx * 4;
+        d[o] = Math.max(0, Math.min(255, Math.round(r)));
+        d[o + 1] = Math.max(0, Math.min(255, Math.round(g)));
+        d[o + 2] = Math.max(0, Math.min(255, Math.round(b)));
+        d[o + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    const url = cvs.toDataURL('image/png');
+    terrainCache[style] = url;
+    return url;
+  }
+
+  function drawTerrain() {
+    clear(layers.terrain);
+    if (st.style === 'schematic') return;
+    let href = null;
+    if (st.style === 'painted') {
+      const raw = G.D.map && G.D.map.backdrop;
+      href = W.util && W.util.safeImageSrc ? W.util.safeImageSrc(raw) : raw;
+    } else {
+      href = buildProceduralTerrain(st.style);
+    }
+    if (!href) return;
+    layers.terrain.appendChild(h('svg:image', {
+      x: 0, y: 0, width: 1000, height: 1000,
+      href: href, preserveAspectRatio: 'xMidYMid slice',
+      opacity: st.style === 'painted' ? 0.94 : 0.92,
+      'pointer-events': 'none',
+    }));
+  }
 
   function typeColor(t) { return (W.colors && W.colors.type && W.colors.type[t]) || typeCol[t] || '#888'; }
   function resObj() { return ((G.D.economy || {}).resources || []).filter(function (r) { return r.name === st.res; })[0]; }
@@ -389,7 +572,8 @@
     stopAnim();
     pulses = [];
     routeEls = [];
-    Object.keys(layers).forEach(function (k) { if (k !== 'grid') clear(layers[k]); });
+    Object.keys(layers).forEach(function (k) { if (k !== 'grid' && k !== 'terrain') clear(layers[k]); });
+    drawTerrain();
     markers = {};
 
     const vis = {};
@@ -690,18 +874,26 @@
       const resources = ((G.D.economy || {}).resources || []).map(function (r) { return r.name; }).sort();
       st.res = resources[0] || '';
 
+      const hasBackdrop = !!(G.D.map && G.D.map.backdrop);
+      st.style = hasBackdrop ? 'painted' : 'topographic';
+
       ui.hudPct = h('span', { class: 'wbm-hud-pct', text: '100%' });
       svg = mkSvg('Interactive cartographic atlas of locations');
       pz = panzoom(svg, function (u, pct) {
         svg.style.setProperty('--wbg-fs', (12 * u) + 'px');
         if (ui.hudPct) ui.hudPct.textContent = pct + '%';
       });
-      ['defs', 'grid', 'halo', 'hull', 'path', 'route', 'pulse', 'node', 'badge'].forEach(function (k) {
+      ['defs', 'terrain', 'grid', 'halo', 'hull', 'path', 'route', 'pulse', 'node', 'badge'].forEach(function (k) {
         layers[k] = k === 'defs' ? h('svg:defs') : h('svg:g', { 'data-layer': k });
         svg.appendChild(layers[k]);
       });
       drawGrid();
 
+      const styleOpts = [];
+      if (hasBackdrop) styleOpts.push(['painted', 'Painted Map']);
+      styleOpts.push(['topographic', 'Topographic'], ['parchment', 'Parchment'], ['schematic', 'Schematic']);
+      const styleSel = h('select', { id: 'wbg-map-style', 'aria-label': 'Map terrain style', onchange: function (e) { st.style = e.target.value; render(); } },
+        styleOpts.map(function (o) { return h('option', { value: o[0], text: o[1], selected: o[0] === st.style ? true : null }); }));
       const modeSel = h('select', { id: 'wbg-map-mode', onchange: function (e) { st.mode = e.target.value; syncMode(); render(); } },
         [['type', 'Type'], ['zone', 'Climate zone'], ['res', 'Resource availability'], ['pop', 'Population']].map(function (o) { return h('option', { value: o[0], text: o[1] }); }));
       const sizeSel = h('select', { id: 'wbg-map-size', 'aria-label': 'Bubble sizing', onchange: function (e) { st.sizeBy = e.target.value; render(); } },
@@ -739,6 +931,7 @@
       stage = h('div', { class: 'wbg-stage' }, svg, hud, ui.tip, ui.empty);
       root = h('div', { class: 'wbg-view' },
         h('div', { class: 'wbg-bar' },
+          h('label', null, 'Terrain ', styleSel),
           h('label', null, 'Colour ', modeSel),
           h('label', null, 'Size ', sizeSel),
           ui.resWrap, toggles, ui.count, ui.ruler),
