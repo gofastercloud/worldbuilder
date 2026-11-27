@@ -266,6 +266,61 @@ def test_layout_function_handles_edge_cases():
     assert all(0 <= x <= 1000 and 0 <= y <= 1000 for x, y in pos.values())
 
 
+def test_layout_single_root_fills_canvas_and_is_deterministic():
+    ids = ["continent", "north", "south", "east", "west", "port", "citadel"]
+    parents = {
+        "north": "continent",
+        "south": "continent",
+        "east": "continent",
+        "west": "continent",
+        "port": "east",
+        "citadel": "north",
+    }
+    edges = [("north", "east"), ("east", "south"), ("south", "west"), ("west", "north"), ("east", "port")]
+    pos1 = vd.compute_layout(ids, parents, edges)
+    pos2 = vd.compute_layout(ids, parents, edges)
+    assert pos1 == pos2
+    xs = [x for x, _ in pos1.values()]
+    ys = [y for _, y in pos1.values()]
+    assert all(0 <= x <= 1000 for x in xs)
+    assert all(0 <= y <= 1000 for y in ys)
+    assert max(max(xs) - min(xs), max(ys) - min(ys)) >= 600.0
+
+
+def test_layout_pinned_coordinates_preserved():
+    ids = ["continent", "north", "south", "east", "west"]
+    parents = {"north": "continent", "south": "continent", "east": "continent", "west": "continent"}
+    edges = [("north", "east"), ("south", "west")]
+    pinned = {"continent": (200.0, 300.0), "east": (850.5, 450.2)}
+    pos1 = vd.compute_layout(ids, parents, edges, pinned=pinned)
+    pos2 = vd.compute_layout(ids, parents, edges, pinned=pinned)
+    assert pos1 == pos2
+    assert pos1["continent"] == (200.0, 300.0)
+    assert pos1["east"] == (850.5, 450.2)
+    assert all(0 <= x <= 1000 and 0 <= y <= 1000 for x, y in pos1.values())
+
+
+def test_map_coordinates_yaml_and_pinned_flag(tmp_path):
+    write_world(tmp_path)
+    loc_dir = tmp_path / "world" / "locations"
+    (loc_dir / "realm.md").write_text(md({"name": "Realm", "type": "kingdom", "coordinates": [150, 250]}))
+    (loc_dir / "harbour.md").write_text(
+        md({"name": "Harbour", "type": "city", "parent": "realm", "coordinates": {"x": 820.5, "y": 740.2}})
+    )
+    (loc_dir / "hill-town.md").write_text(
+        md({"name": "Hill Town", "type": "town", "parent": "realm", "coordinates": {}})
+    )
+    (loc_dir / "outpost.md").write_text(md({"name": "Outpost", "type": "town", "parent": "realm"}))
+    data = vd.build_viz_data(tmp_path)
+    locs = {x["id"]: x for x in data["map"]["locations"]}
+    assert locs["realm"]["pinned"] is True
+    assert (locs["realm"]["x"], locs["realm"]["y"]) == (150.0, 250.0)
+    assert locs["harbour"]["pinned"] is True
+    assert (locs["harbour"]["x"], locs["harbour"]["y"]) == (820.5, 740.2)
+    assert locs["hill-town"]["pinned"] is False
+    assert locs["outpost"]["pinned"] is False
+
+
 def test_sparse_world_warnings(tmp_path):
     write_world(tmp_path, economy=False, rich=False)
     data = vd.build_viz_data(tmp_path)

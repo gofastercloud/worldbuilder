@@ -58,10 +58,11 @@ Tradition: `{id, name, kind, status, fidelity, first_attested_t, origin_events, 
 
 ## map
 
-Location: `{id, name, type, parent, children, depth, x, y, terrain, elevation_m, area_km2, population, population_label, climate, hydrology, flora, fauna, resources, has_own_climate}`
+Location: `{id, name, type, parent, children, depth, x, y, pinned, terrain, elevation_m, area_km2, population, population_label, climate, hydrology, flora, fauna, resources, has_own_climate}`
 
 - `parent`: location id or null (top level). `depth`: 0 for top level. `children`: ids.
 - `x`, `y`: layout position, numbers in [0, 1000] (see Layout).
+- `pinned`: `true` when the location file declared explicit `coordinates: [x, y]` or `coordinates: {x: N, y: M}` (finite numbers in [0, 1000]), else `false`.
 - `terrain`: str or null. `elevation_m`, `area_km2`: number or null.
 - `population`: number parsed from the leading figure (`"~45 million permanent"` gives 45000000) or null; `population_label` is the original text.
 - `climate`: null, or `{zone, temperature_c, precipitation_mm, growing_season_days, seasons, hazards, notes, inherited}`. It is the effective profile: a child inherits its parent's `climate_profile` and overrides only the keys it states; `inherited` is true when taken wholly from an ancestor. `zone` may be null. `temperature_c` is whatever the file has: usually `{spring: [lo, hi], summer: [lo, hi], ...}`, possibly a number or `[lo, hi]`. `seasons` is a list of `{name, length, character}`; `hazards` a list of `{name, season, frequency, effect}` (both `[]` when absent). `notes` is the file's `notes` or its `drivers` joined with "; ".
@@ -83,10 +84,10 @@ Routes are undirected: the two declarations (A lists B, B lists A) merge into on
 ### Layout
 
 Deterministic, no randomness; the same files always give the same `x`, `y`.
-1. Locations sorted by id. Top-level places (no known parent) go on a ring of radius 340 about (500, 500), starting at the top and stepping evenly in id order; a single top-level place is centred.
-2. Children are placed on a circle around their parent in id order, radius `120 * 0.55^(depth-1)` (minimum 24), starting at the parent's own angle.
-3. 80 fixed force iterations (25 above 300 locations): pairwise repulsion `900/d^2` within 150 units, route springs (rest 130, k 0.04), parent springs (rest 60, k 0.08), step size cooling linearly, each move clamped to 20 units. Coincident points are nudged by index.
-4. Positions are clamped to [20, 980] and rounded to 0.1.
+1. Locations sorted by id. Optional explicit `coordinates: [x, y]` or `coordinates: {x: N, y: M}` (finite numbers in [0, 1000]) pin those locations at their exact coordinates (`pinned: true`). Top-level unpinned places (no known parent) go on a ring of radius 340 about (500, 500), starting at the top and stepping evenly in id order; a single unpinned top-level place is centred.
+2. Unpinned children are placed on a circle around their parent in id order, radius `base * 0.58^(depth-1)` (minimum 28, where `base` is 220 for a single-root hierarchy and 140 otherwise), starting at the parent's own angle.
+3. 80 fixed force iterations (25 above 300 locations): pairwise repulsion `1200/d^2` within 240 units, route springs (rest 160, k 0.04), parent springs (rest 95, k 0.08), step size cooling linearly, each move clamped to 20 units and unpinned positions clamped to [20, 980]. Pinned locations remain fixed throughout relaxation while exerting forces on unpinned neighbours. Coincident points are nudged by index.
+4. When no locations are pinned and at least 2 locations exist, the bounding box is uniformly normalised (preserving aspect ratio, centred at (500, 500)) to fill [90, 910]. Final positions are rounded to 0.1.
 
 ## climate
 

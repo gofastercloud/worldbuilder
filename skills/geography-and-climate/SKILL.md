@@ -55,6 +55,8 @@ Hierarchy: `universe > galaxy > star-system > planet/moon > continent/ocean/sea 
 
 Routes: each side of a route lists the other (`bidirectional: true` still needs both entries unless the route is genuinely one-way, in which case say why in `notes`). Route shape (the one used everywhere, including by `economy-and-trade`): `to` plus `methods[]`, each with `mode`, `distance` and `travel_time` consistent with each other and with terrain, season and the transport technology the world flags allow. Distances and speeds, chokepoints, seasonal closures: `references/transport-and-travel.md`.
 
+Coordinates (optional): a location may pin its map position on the 1000x1000 atlas canvas using `coordinates: [x, y]` or `coordinates: {x: N, y: M}` (two finite numbers in `[0, 1000]`). Leave `coordinates` unset (or `{}`) for automatic placement; pinned locations stay fixed while unpinned locations relax around them.
+
 ## Adding or editing a location (procedure)
 
 1. Read `project.yaml` flags and the whole parent chain (up to the planet or world root), noting each level's `climate_profile`, terrain, elevation and hydrology.
