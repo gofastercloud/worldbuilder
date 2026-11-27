@@ -153,15 +153,21 @@ def _load_yaml(path):
 # ── deterministic layout ────────────────────────────────────────────────────
 
 
-def compute_layout(ids, parents, edges):
+LAYOUT_MARGIN = 90.0
+
+
+def compute_layout(ids, parents, edges, pinned=None):
     """Deterministic 2D layout in [0, 1000]^2. See references/data-format.md for the algorithm.
 
-    ids: sorted location ids; parents: id -> parent id or None; edges: list of (a, b) route pairs.
+    ids: sorted location ids; parents: id -> parent id or None; edges: list of (a, b) route pairs;
+    pinned: optional dict[id, (x, y)] of explicit coordinates kept fixed during relaxation.
     Returns {id: (x, y)} rounded to one decimal place.
     """
     ids = sorted(ids)
     if not ids:
         return {}
+    id_set = set(ids)
+    pinned_map = {k: (float(v[0]), float(v[1])) for k, v in (pinned or {}).items() if k in id_set}
     kids = {i: [] for i in ids}
     roots = []
     for i in ids:
@@ -170,44 +176,56 @@ def compute_layout(ids, parents, edges):
     centre = LAYOUT_SIZE / 2
     pos = {}
     angle_of = {}
+    base_radius = 220.0 if len(roots) == 1 else 140.0
 
     def place_children(parent, depth):
         children = sorted(kids[parent])
         if not children:
             return
-        radius = max(24.0, 120.0 * (0.55 ** (depth - 1)))
+        radius = max(28.0, base_radius * (0.58 ** (depth - 1)))
         base = angle_of.get(parent, 0.0)
         # first child offset by half a step so children do not sit exactly on the outward axis
         for k, c in enumerate(children):
             a = base + (k + 0.5) * 2 * math.pi / len(children)
-            angle_of[c] = a
-            pos[c] = (pos[parent][0] + radius * math.cos(a), pos[parent][1] + radius * math.sin(a))
+            if c in pinned_map:
+                pos[c] = pinned_map[c]
+                dx = pos[c][0] - pos[parent][0]
+                dy = pos[c][1] - pos[parent][1]
+                angle_of[c] = math.atan2(dy, dx) if (dx * dx + dy * dy) > 1e-6 else a
+            else:
+                angle_of[c] = a
+                pos[c] = (pos[parent][0] + radius * math.cos(a), pos[parent][1] + radius * math.sin(a))
             place_children(c, depth + 1)
 
     if len(roots) == 1:
-        pos[roots[0]] = (centre, centre)
-        angle_of[roots[0]] = 0.0
-        place_children(roots[0], 1)
+        r0 = roots[0]
+        pos[r0] = pinned_map[r0] if r0 in pinned_map else (centre, centre)
+        angle_of[r0] = 0.0
+        place_children(r0, 1)
     else:
         ring = 340.0
         for k, r in enumerate(roots):
             a = -math.pi / 2 + k * 2 * math.pi / len(roots)
             angle_of[r] = a
-            pos[r] = (centre + ring * math.cos(a), centre + ring * math.sin(a))
+            pos[r] = pinned_map[r] if r in pinned_map else (centre + ring * math.cos(a), centre + ring * math.sin(a))
             place_children(r, 1)
-    # Any id missed (parent cycle): put on an outer ring in id order.
+    # Any id missed (parent cycle): put on an outer ring in id order (unless pinned).
     missing = [i for i in ids if i not in pos]
     for k, i in enumerate(missing):
-        a = k * 2 * math.pi / max(1, len(missing))
-        pos[i] = (centre + 450 * math.cos(a), centre + 450 * math.sin(a))
+        if i in pinned_map:
+            pos[i] = pinned_map[i]
+        else:
+            a = k * 2 * math.pi / max(1, len(missing))
+            pos[i] = (centre + 450 * math.cos(a), centre + 450 * math.sin(a))
 
     # Fixed-iteration force relaxation: pairwise repulsion, route springs, parent springs.
     n = len(ids)
     index = {i: k for k, i in enumerate(ids)}
+    is_pinned = [i in pinned_map for i in ids]
     xs = [pos[i][0] for i in ids]
     ys = [pos[i][1] for i in ids]
-    springs = [(index[a], index[b], 130.0, 0.04) for a, b in edges if a in index and b in index and a != b]
-    springs += [(index[i], index[parents[i]], 60.0, 0.08) for i in ids if parents.get(i) in index]
+    springs = [(index[a], index[b], 160.0, 0.04) for a, b in edges if a in index and b in index and a != b]
+    springs += [(index[i], index[parents[i]], 95.0, 0.08) for i in ids if parents.get(i) in index]
     iterations = LAYOUT_ITERATIONS if n <= 300 else 25
     for it in range(iterations):
         cool = 1.0 - it / float(iterations)
@@ -220,10 +238,10 @@ def compute_layout(ids, parents, edges):
                 d2 = dx * dx + dy * dy
                 if d2 < 1e-6:  # coincident: deterministic nudge by index
                     dx, dy, d2 = 0.01 * (a + 1), 0.01 * (b + 1), 1e-4 * ((a + 1) ** 2 + (b + 1) ** 2)
-                if d2 > 150.0 ** 2:
+                if d2 > 240.0 ** 2:
                     continue
                 d = math.sqrt(d2)
-                f = 900.0 / d2
+                f = 1200.0 / d2
                 fx[a] += f * dx / d
                 fy[a] += f * dy / d
                 fx[b] -= f * dx / d
@@ -239,10 +257,26 @@ def compute_layout(ids, parents, edges):
             fy[b] -= f * dy / d
         step = 4.0 * cool
         for a in range(n):
+            if is_pinned[a]:
+                continue
             mx = max(-20.0, min(20.0, fx[a] * step))
             my = max(-20.0, min(20.0, fy[a] * step))
             xs[a] = min(LAYOUT_SIZE - 20, max(20.0, xs[a] + mx))
             ys[a] = min(LAYOUT_SIZE - 20, max(20.0, ys[a] + my))
+
+    # Uniformly normalise unpinned auto-layouts to fill [LAYOUT_MARGIN, LAYOUT_SIZE - LAYOUT_MARGIN].
+    if not pinned_map and n >= 2:
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+        max_span = max(max_x - min_x, max_y - min_y)
+        if max_span > 1e-6:
+            target_span = LAYOUT_SIZE - 2.0 * LAYOUT_MARGIN
+            scale = target_span / max_span
+            cx = (min_x + max_x) / 2.0
+            cy = (min_y + max_y) / 2.0
+            xs = [centre + (x - cx) * scale for x in xs]
+            ys = [centre + (y - cy) * scale for y in ys]
+
     return {i: (round(xs[index[i]], 1), round(ys[index[i]], 1)) for i in ids}
 
 
@@ -639,9 +673,12 @@ def _mean(vals):
 
 def _map(g, economy_routes_by_pair):
     loc_ids = sorted(s for s, n in g.nodes.items() if n["type"] == "location")
-    parents, route_acc = {}, {}
+    parents, route_acc, pinned = {}, {}, {}
     for slug in loc_ids:
         meta = _meta(g, slug)
+        coords, _ = _v.parse_coordinates(meta.get("coordinates"))
+        if coords is not None:
+            pinned[slug] = coords
         p = _resolve(g, _str(meta.get("parent")), "location")
         parents[slug] = p if p != slug else None
         for r in meta.get("routes") or []:
@@ -683,7 +720,7 @@ def _map(g, economy_routes_by_pair):
     for s in loc_ids:
         if parents.get(s) in children:
             children[parents[s]].append(s)
-    layout = compute_layout(loc_ids, parents, [(r["from"], r["to"]) for r in routes])
+    layout = compute_layout(loc_ids, parents, [(r["from"], r["to"]) for r in routes], pinned=pinned or None)
     cache = {}
     locations = []
     for s in loc_ids:
@@ -700,6 +737,7 @@ def _map(g, economy_routes_by_pair):
             "depth": depth[s],
             "x": layout[s][0],
             "y": layout[s][1],
+            "pinned": s in pinned,
             "terrain": _str(meta.get("terrain")),
             "elevation_m": _num(meta.get("elevation_m")),
             "area_km2": _num(meta.get("area_km2")),

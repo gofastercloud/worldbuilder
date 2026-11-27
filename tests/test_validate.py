@@ -785,3 +785,48 @@ def test_tradition_referencing_magic_system_still_error_when_absent(tmp_path):
     files["world/magic-systems/weave.md"] = msys()
     errs = find(run(tproject(tmp_path / "b", files, NO_MAGIC)), "magic-flag", "error")
     assert any(i["file"].endswith("lantern-night.md") for i in errs)
+
+
+# ── location coordinates ─────────────────────────────────────────────────────
+
+
+def test_valid_location_coordinates(tmp_path):
+    root = make_project(
+        tmp_path,
+        {
+            "world/locations/list-loc.md": fm(name="List Loc", type="city", coordinates=[0, 1000]),
+            "world/locations/dict-loc.md": fm(name="Dict Loc", type="city", coordinates={"x": 250.5, "y": 750.25}),
+            "world/locations/empty-loc.md": fm(name="Empty Loc", type="city", coordinates={}),
+            "world/locations/plain-loc.md": fm(name="Plain Loc", type="city"),
+        },
+    )
+    assert not find(run(root), "coordinates")
+
+
+@pytest.mark.parametrize(
+    "bad_coords",
+    [
+        [-1, 500],
+        [500, 1001],
+        {"x": -0.1, "y": 500},
+        {"x": 500, "y": 1000.1},
+        [100],
+        [100, 200, 300],
+        [],
+        {"x": 100},
+        {"x": 100, "y": 200, "z": 300},
+        ["100", "200"],
+        [True, 200],
+        [float("nan"), 100],
+        [float("inf"), 100],
+        "100, 200",
+    ],
+)
+def test_invalid_location_coordinates_emit_error(tmp_path, bad_coords):
+    root = make_project(
+        tmp_path,
+        {"world/locations/bad.md": fm(name="Bad", type="city", coordinates=bad_coords)},
+    )
+    errs = find(run(root), "coordinates", "error")
+    assert len(errs) == 1
+    assert errs[0]["field"] == "coordinates"

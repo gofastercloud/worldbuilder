@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -1373,6 +1374,40 @@ def check_peoples(cx):
 # ═════════════════════════════════════════════════════════════════════════════
 
 
+def parse_coordinates(raw):
+    """Parse optional location coordinates.
+
+    Accepts [x, y] or {x: N, y: M} with finite numbers in [0, 1000].
+    None or empty mapping {} means unset and returns (None, None).
+    Returns ((x, y), None) if valid, or (None, reason) if malformed/out of bounds.
+    """
+    if raw is None or (isinstance(raw, dict) and not raw):
+        return None, None
+    if isinstance(raw, (list, tuple)):
+        if len(raw) != 2:
+            return None, f"expected 2 numbers [x, y], got {len(raw)}"
+        rx, ry = raw[0], raw[1]
+    elif isinstance(raw, dict):
+        if set(raw.keys()) != {"x", "y"}:
+            return None, "mapping must have exactly 'x' and 'y' keys"
+        rx, ry = raw["x"], raw["y"]
+    else:
+        return None, f"expected [x, y] or {{x, y}}, got {type(raw).__name__}"
+    if (
+        isinstance(rx, bool)
+        or isinstance(ry, bool)
+        or not isinstance(rx, (int, float))
+        or not isinstance(ry, (int, float))
+    ):
+        return None, "x and y must be finite numbers"
+    fx, fy = float(rx), float(ry)
+    if not (math.isfinite(fx) and math.isfinite(fy)):
+        return None, "x and y must be finite numbers"
+    if not (0.0 <= fx <= 1000.0 and 0.0 <= fy <= 1000.0):
+        return None, f"coordinates ({fx}, {fy}) out of bounds [0, 1000]"
+    return (fx, fy), None
+
+
 def check_geography(cx):
     R = cx.report
     locs = cx.ents("location")
@@ -1388,6 +1423,15 @@ def check_geography(cx):
 
     for slug, node in tree.items():
         ent = node["ent"]
+        _, coord_err = parse_coordinates(ent["meta"].get("coordinates"))
+        if coord_err:
+            R.error(
+                "coordinates",
+                ent,
+                "coordinates",
+                f"Location '{node['name']}': invalid coordinates ({coord_err})",
+                "Use coordinates: [x, y] or coordinates: {x: N, y: M} with finite numbers in [0, 1000].",
+            )
         parent_ref = node["parent"]
         if parent_ref and slugify(parent_ref) not in tree and not cx.resolve(parent_ref):
             R.warn(
