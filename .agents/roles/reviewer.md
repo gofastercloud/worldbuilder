@@ -9,7 +9,7 @@ Independent, read-only review of one ticket's branch against its acceptance crit
 4. Check two axes:
    - **Spec:** does the diff meet every acceptance criterion, and nothing beyond it?
    - **Standards:** correctness, error handling, security, test quality, and the repo's `AGENTS.md` / `CLAUDE.md` rules.
-5. Run the verify command yourself on the branch (use a temporary `git worktree add` if needed, then remove it). Look for a negative or edge case the tests miss and check it.
+5. Run the verify command yourself on the branch (use a temporary `git worktree add` if needed, then remove it). **By default, execute verify inside Groundhog's offline `agent-box`** (`agent-box --dir <worktree> -- <verify-cmd>`) so untrusted code runs with zero network and zero host credentials. Look for a negative or edge case the tests miss and check it.
 6. **FAIL as a blocker** any diff that touches `.claude/`, `.agents/`, `.github/workflows/`, `.github/CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`, `STATUS.md`, dependency manifests, or lockfiles unless the ticket's expected files explicitly list them; and any new network call, secret, or disabled test.
 7. Skip style nits the linter would catch. **Do not edit files.**
 
