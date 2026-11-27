@@ -13,9 +13,11 @@ Run [scripts/build_viewer.py](./scripts/build_viewer.py) (resolved relative to t
 
 ```bash
 python3 <this-skill-dir>/scripts/build_viewer.py <project-dir>
+# Or serve locally on 127.0.0.1 with auto-rebuild on refresh and HTTP audio/image streaming:
+python3 <this-skill-dir>/scripts/build_viewer.py <project-dir> --serve [--port 8765]
 ```
 
-Options: `--out FILE` to write elsewhere, `--embed-images` to base64-encode discovered entity artwork (`output/images/<type>/<slug>.{png,jpg,jpeg,webp}` or frontmatter `image:`) as data URIs for a 100% portable single file, `--json-only` to write `viz.json` instead of the page, `--template PATH` to use another shell (its `css/` and `js/` folders sit beside it). The sources are in `assets/viewer/`; the build inlines them into one file. The script exits with an error if the folder has no `project.yaml`. It prints any data warnings (for example `0 locations have climate data`).
+Options: `--serve [--port N]` to run a zero-dependency localhost server (`127.0.0.1`) that auto-rebuilds on refresh and streams `output/images/` and `output/audio/` without base64 bloat, `--out FILE` to write elsewhere, `--embed-media` (alias `--embed-images`) to base64-encode discovered entity artwork and audio as data URIs for a 100% portable single file, `--json-only` to write `viz.json`, `--template PATH` to use another shell. The script exits with an error if the folder has no `project.yaml`. It prints any data warnings.
 
 Then tell the user the path of `world-viewer.html` and ask them to open it in a browser. The page loads three.js from a CDN, so it needs an internet connection the first time it is opened.
 
