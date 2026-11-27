@@ -154,7 +154,7 @@ def test_calendar_and_nodes(world):
     nodes = {n["id"]: n for n in data["nodes"]}
     assert nodes["the-rebuilding"]["t"] == 50 and nodes["the-rebuilding"]["end_t"] == 60
     assert nodes["the-flood"]["end_t"] is None
-    node_keys = {"id", "type", "name", "t", "end_t", "date_label", "era", "summary", "status", "tags", "image"}
+    node_keys = {"id", "type", "name", "t", "end_t", "date_label", "era", "summary", "status", "tags", "image", "audio"}
     assert set(nodes["the-flood"]) == node_keys
     assert nodes["the-flood"]["image"] is None
     assert data["counts"]["event"] == 2 and data["counts"]["location"] == 3
@@ -446,3 +446,30 @@ def test_example_json_roundtrip_and_sample(example_data):
     sample = tmp / "viz-sample.json"
     sample.write_text(text, encoding="utf-8")
     assert sample.stat().st_size > 1000
+
+
+def test_audio_discovery_and_embed_media(world):
+    char_file = world / "world" / "characters" / "aria.md"
+    char_file.parent.mkdir(parents=True, exist_ok=True)
+    char_file.write_text(md({"name": "Aria", "status": "alive"}), encoding="utf-8")
+    audio_dir = world / "output" / "audio"
+    char_dir = audio_dir / "characters"
+    char_dir.mkdir(parents=True, exist_ok=True)
+    fake_mp3 = b"ID3\x03\x00\x00\x00\x00\x00\x00test-audio"
+    (audio_dir / "theme.mp3").write_bytes(fake_mp3)
+    (char_dir / "aria.mp3").write_bytes(fake_mp3)
+
+    d = vd.build_viz_data(world, embed_images=False)
+    assert d["project"]["audio"] == "audio/theme.mp3"
+    by_id = {n["id"]: n for n in d["nodes"]}
+    assert by_id["aria"]["audio"] == "audio/characters/aria.mp3"
+
+    d_emb = vd.build_viz_data(world, embed_images=True)
+    assert d_emb["project"]["audio"].startswith("data:audio/mpeg;base64,")
+    by_id_emb = {n["id"]: n for n in d_emb["nodes"]}
+    assert by_id_emb["aria"]["audio"].startswith("data:audio/mpeg;base64,")
+
+    out = world / "output" / "embedded.html"
+    assert bv.main([str(world), "--embed-media", "--out", str(out)]) == 0
+    html = out.read_text(encoding="utf-8")
+    assert "data:audio/mpeg;base64," in html and "WB.audio" in html

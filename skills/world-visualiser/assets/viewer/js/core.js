@@ -89,6 +89,14 @@ const WB = (function () {
     if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) || s.startsWith('//')) return null;
     return s;
   }
+  function safeAudioSrc(src) {
+    if (typeof src !== 'string') return null;
+    const s = src.trim();
+    if (!s) return null;
+    if (s.startsWith('data:audio/')) return s;
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) || s.startsWith('//')) return null;
+    return s;
+  }
   const cal = data.calendar;
   const span = () => Math.max(1e-9, (cal.t_max - cal.t_min));
   function tToX(t, w) { return ((t - cal.t_min) / span()) * w; }
@@ -251,8 +259,118 @@ const WB = (function () {
     renderLightboxSlide();
   }
 
+  // ---- audio engine: looping world soundtrack (auto-ducking) + character voice playback
+  const MUSIC_VOL = 0.34;
+  const DUCK_VOL = 0.07;
+  const themeSrc = safeAudioSrc(data.project && data.project.audio);
+  let musicEl = null;
+  let musicMuted = false;
+  let musicPlaying = false;
+  let voiceEl = null;
+  let speakingId = null;
+
+  function syncMusicVol() {
+    if (!musicEl) return;
+    musicEl.volume = speakingId ? DUCK_VOL : MUSIC_VOL;
+  }
+
+  function tryStartMusic() {
+    if (!musicEl || musicMuted) return;
+    const p = musicEl.play();
+    if (p && typeof p.then === 'function') {
+      p.then(() => {
+        musicPlaying = true;
+        bus.emit('audio');
+      }).catch(() => {
+        // Browser autoplay policy blocked unmuted start; start on first user gesture.
+        const unlock = () => {
+          document.removeEventListener('pointerdown', unlock, true);
+          document.removeEventListener('keydown', unlock, true);
+          if (!musicMuted && musicEl && musicEl.paused) {
+            musicEl.play().then(() => {
+              musicPlaying = true;
+              bus.emit('audio');
+            }).catch(() => {});
+          }
+        };
+        document.addEventListener('pointerdown', unlock, true);
+        document.addEventListener('keydown', unlock, true);
+      });
+    }
+  }
+
+  if (themeSrc && typeof Audio !== 'undefined') {
+    musicEl = new Audio(themeSrc);
+    musicEl.loop = true;
+    musicEl.preload = 'auto';
+    musicEl.volume = MUSIC_VOL;
+    musicEl.addEventListener('pause', () => { musicPlaying = false; bus.emit('audio'); });
+    musicEl.addEventListener('play', () => { musicPlaying = true; bus.emit('audio'); });
+    tryStartMusic();
+  }
+
+  const audio = {
+    hasMusic: !!themeSrc,
+    isMusicPlaying() { return musicPlaying && !musicMuted; },
+    isMuted() { return musicMuted; },
+    speakingId() { return speakingId; },
+    toggleMusic() {
+      if (!musicEl) return;
+      if (musicMuted || musicEl.paused) {
+        musicMuted = false;
+        musicEl.muted = false;
+        syncMusicVol();
+        musicEl.play().then(() => { musicPlaying = true; bus.emit('audio'); }).catch(() => {});
+      } else {
+        musicMuted = true;
+        musicEl.pause();
+        musicPlaying = false;
+        bus.emit('audio');
+      }
+    },
+    stopVoice() {
+      if (voiceEl) {
+        try { voiceEl.pause(); voiceEl.currentTime = 0; } catch (_) {}
+      }
+      speakingId = null;
+      syncMusicVol();
+      bus.emit('audio');
+    },
+    playVoice(node) {
+      if (!node) return;
+      const src = safeAudioSrc(node.audio);
+      if (!src || typeof Audio === 'undefined') return;
+      if (speakingId === node.id && voiceEl && !voiceEl.paused) {
+        audio.stopVoice();
+        return;
+      }
+      if (!voiceEl) {
+        voiceEl = new Audio();
+        voiceEl.addEventListener('ended', () => {
+          speakingId = null;
+          syncMusicVol();
+          bus.emit('audio');
+        });
+        voiceEl.addEventListener('error', () => {
+          speakingId = null;
+          syncMusicVol();
+          bus.emit('audio');
+        });
+      }
+      voiceEl.src = src;
+      speakingId = node.id;
+      syncMusicVol();
+      bus.emit('audio');
+      voiceEl.play().catch(() => {
+        speakingId = null;
+        syncMusicVol();
+        bus.emit('audio');
+      });
+    },
+  };
+
   const WBobj = {
-    data, state, colors, bus, typeGlyph, edges, degree, openLightbox,
+    data, state, colors, bus, typeGlyph, edges, degree, openLightbox, audio,
     focus() { return focusCache; },
     select(id) {
       const next = id && byId.has(id) ? id : null;
@@ -285,7 +403,7 @@ const WB = (function () {
       this.views.push(view);
       this.views.sort((a, b) => (a.order || 100) - (b.order || 100));
     },
-    util: { el, svg, fmtT, tToX, byId, esc, safeImageSrc, lineage, out, inn },
+    util: { el, svg, fmtT, tToX, byId, esc, safeImageSrc, safeAudioSrc, lineage, out, inn },
   };
 
   // ---- inline SVG Mini Causal Neighbourhood Graph
@@ -554,9 +672,25 @@ const WB = (function () {
         if (tr.status) facts.push(['Status', tr.status]);
       }
 
+      const voiceSrc = safeAudioSrc(n.audio);
+      let voiceBtn = null;
+      if (voiceSrc) {
+        const isSpk = audio.speakingId() === n.id;
+        voiceBtn = el('button', {
+          type: 'button',
+          class: 'wb-voice-btn' + (isSpk ? ' playing' : ''),
+          'aria-pressed': String(isSpk),
+          'aria-label': isSpk ? 'Stop ' + n.name + ' speaking' : 'Hear ' + n.name + ' speak',
+          onclick: () => audio.playVoice(n),
+        },
+        el('span', { class: 'wb-voice-icon', 'aria-hidden': 'true', text: isSpk ? '⏹' : '🔊' }),
+        el('span', { text: isSpk ? 'Stop speaking' : 'Hear ' + n.name + ' speak' }));
+      }
+
       const detailChildren = [
         hero,
         headerBlock,
+        voiceBtn,
         n.summary ? el('p', { class: 'detail-summary', text: n.summary }) : null,
         miniGraph,
         facts.length ? el('dl', {}, facts.map(([k, v]) => [el('dt', { text: k }), el('dd', { text: v })])) : null,

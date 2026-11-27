@@ -541,6 +541,48 @@ main {
 }
 #list[hidden] { display: none; }
 #list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+#list li.has-voice { display: flex; align-items: center; gap: 4px; }
+#list li.has-voice > button.link { flex: 1; min-width: 0; }
+.list-speak-btn {
+  flex: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11.5px;
+  cursor: pointer;
+  line-height: 1.3;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+.list-speak-btn:hover, .list-speak-btn.playing {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.wb-music-btn.playing {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-soft);
+}
+.wb-voice-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 12px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border-glow);
+  background: var(--accent-soft);
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+.wb-voice-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px var(--accent-soft); }
+.wb-voice-btn.playing {
+  border-color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 20%, var(--surface));
+}
 #list button.link {
   width: 100%;
   padding: 5px 8px;
