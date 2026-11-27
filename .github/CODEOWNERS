@@ -1,0 +1,8 @@
+# groundhog-agency: the harness, CI and shared instructions need the maintainer's review.
+/.claude/ @gofastercloud
+/.agents/ @gofastercloud
+/.github/ @gofastercloud
+/.mcp.json @gofastercloud
+/AGENTS.md @gofastercloud
+/CLAUDE.md @gofastercloud
+/STATUS.md @gofastercloud
