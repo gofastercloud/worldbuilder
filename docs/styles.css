@@ -247,6 +247,23 @@ h1 {
   text-decoration: none;
 }
 .stage-open:hover { text-decoration: underline; }
+.stage-audio-btn {
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: rgba(56, 189, 248, 0.16);
+  color: var(--fg);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+.stage-audio-btn:hover { background: rgba(56, 189, 248, 0.28); }
+.stage-audio-btn.unmuted {
+  border-color: rgba(245, 158, 11, 0.6);
+  background: rgba(245, 158, 11, 0.22);
+  color: var(--amber);
+}
 .stage-screen { position: relative; background: #050810; }
 .stage-screen video {
   display: block;

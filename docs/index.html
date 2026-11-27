@@ -68,14 +68,15 @@
               2. Timeline · Map · Trade · Life
             </button>
             <button type="button" class="stage-tab" role="tab" aria-selected="false" data-demo="gallery">
-              3. ⌘K · Telemetry · Gallery
+              3. 🔊 Gallery · Music &amp; Voices
             </button>
           </div>
+          <button type="button" class="stage-audio-btn" id="stage-unmute" hidden aria-label="Unmute demo audio">🔇 Unmute</button>
           <a class="stage-open" href="viewer.html" title="Open live interactive viewer">Try live ↗</a>
         </div>
 
         <div class="stage-screen">
-          <video id="demo-video" autoplay loop muted playsinline poster="assets/demos/demo-3d-universe.png">
+          <video id="demo-video" autoplay loop muted playsinline controls poster="assets/demos/demo-3d-universe.png">
             <source src="assets/demos/demo-3d-universe.mp4" type="video/mp4">
           </video>
           <div class="stage-caption" id="demo-caption">
@@ -244,12 +245,12 @@ By model:
           </div>
         </article>
         <article class="clip-card card">
-          <video autoplay loop muted playsinline poster="assets/demos/demo-command-gallery.png">
+          <video autoplay loop muted playsinline controls poster="assets/demos/demo-command-gallery.png">
             <source src="assets/demos/demo-command-gallery.mp4" type="video/mp4">
           </video>
           <div class="clip-body">
-            <h3>⌘K Palette, Telemetry &amp; 3D Gallery</h3>
-            <p>Instant fuzzy-jump Command Palette, SVG World Telemetry HUD, inline detail mini-graph, and 3D-tilt artwork Gallery.</p>
+            <h3>🔊 3D Gallery, Soundtrack &amp; Voices</h3>
+            <p>Unmute to hear the looping Lyria ambient soundtrack and voiced characters (<em>Selene</em> &amp; <em>Lyra</em>) alongside 20 fal.ai artworks, Lightbox, and Telemetry HUD.</p>
           </div>
         </article>
       </div>

@@ -55,12 +55,28 @@
     gallery: {
       src: 'assets/demos/demo-command-gallery.mp4',
       poster: 'assets/demos/demo-command-gallery.png',
-      caption: '<strong>⌘K Palette, Telemetry &amp; fal.ai Gallery</strong> — Fuzzy-jump Command Palette, SVG World Telemetry HUD, detail mini-graph, and 3D-tilt artwork Gallery + Lightbox.',
+      hasAudio: true,
+      caption: '<strong>🔊 Gallery, Soundtrack &amp; Voices</strong> — Click <em>Unmute</em> to hear the looping Lyria ambient score and voiced characters (<em>Selene</em> &amp; <em>Lyra</em>) across 20 fal.ai artworks, Lightbox, and Telemetry HUD.',
     },
   };
 
   const demoVideo = document.getElementById('demo-video');
   const demoCaption = document.getElementById('demo-caption');
+  const unmuteBtn = document.getElementById('stage-unmute');
+  function syncUnmuteBtn() {
+    if (!unmuteBtn || !demoVideo) return;
+    const muted = demoVideo.muted;
+    unmuteBtn.textContent = muted ? '🔇 Unmute Audio' : '🔊 Sound On';
+    unmuteBtn.classList.toggle('unmuted', !muted);
+  }
+  unmuteBtn?.addEventListener('click', () => {
+    if (!demoVideo) return;
+    demoVideo.muted = !demoVideo.muted;
+    if (!demoVideo.muted) demoVideo.play().catch(() => {});
+    syncUnmuteBtn();
+  });
+  demoVideo?.addEventListener('volumechange', syncUnmuteBtn);
+
   document.querySelectorAll('.stage-tab').forEach((btn) => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.demo;
@@ -71,11 +87,14 @@
         b.classList.toggle('active', on);
         b.setAttribute('aria-selected', String(on));
       });
+      if (unmuteBtn) unmuteBtn.hidden = !d.hasAudio;
+      if (!d.hasAudio) demoVideo.muted = true;
       demoVideo.poster = d.poster;
       const srcEl = demoVideo.querySelector('source');
       if (srcEl) srcEl.src = d.src;
       demoVideo.load();
       demoVideo.play().catch(() => {});
+      syncUnmuteBtn();
       if (demoCaption) demoCaption.innerHTML = d.caption;
     });
   });
