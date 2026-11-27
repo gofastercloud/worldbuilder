@@ -99,7 +99,8 @@ Tell the user the saved asset paths and the rebuilt `output/world-viewer.html` p
 
 The same `fal` OAuth MCP server also supports low-cost **music** and **text-to-speech**:
 
-- **World soundtrack (looping in the visualiser header with a mute toggle):** Save to `<project>/output/audio/theme.mp3` (or `.wav`/`.ogg`). Prefer cost-effective instrumental models such as `google/lyria-3.5` (~$0.10/generation; pass `prompt` only — Lyria 3.5 does not accept `negative_prompt` — and specify "strictly instrumental, no vocals" in the prompt).
+- **World soundtrack (looping in the visualiser header with a mute toggle):** Save to `<project>/output/audio/theme.mp3` (or `.wav`/`.ogg`). Prefer cost-effective instrumental models such as `google/lyria-3.5` (~$0.10/generation; **never pass `negative_prompt`** — even though its schema lists the field, Lyria 3.5 rejects it at runtime with HTTP 422; put `"strictly instrumental, no vocals"` inside `prompt` instead).
+- **Coordinate-locked painted world maps (optional):** Save to `<project>/output/images/world-map.png` (or `.jpg`). When using `fal-ai/flux/dev/image-to-image` over a deterministic elevation guide PNG, use `strength: 0.88–0.92` and avoid large flat bright-white regions in the guide (which FLUX may interpret as cloud cover).
 - **Character voice samples ("Hear them speak" buttons in the Entity list and Detail panel):** Save to `<project>/output/audio/characters/<slug>.mp3` (or `.wav`). Prefer low-cost expressive TTS such as `google/gemini-3.8-flash-tts` (~$0.045 per 1,000 characters — keep lines to 1–2 crisp sentences, ~$0.005 each).
 - Always log audio and music runs to `<project>/output/art-usage.yaml` via `scripts/log_usage.py record` (using `--unit generations` or `--unit characters` and `--cost-usd`) so every world tracks its total media spend.
 
